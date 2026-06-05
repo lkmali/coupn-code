@@ -1,0 +1,454 @@
+import 'reflect-metadata'
+import express from 'express'
+import { MigrationObserver } from './observers/migration.observer'
+import { CorsProvider } from './provider/cors'
+import { useExpressServer, getMetadataArgsStorage } from 'routing-controllers'
+import { routingControllersToSpec } from 'routing-controllers-openapi'
+import swaggerUi from 'swagger-ui-express'
+import { validationMetadatasToSchemas } from 'class-validator-jsonschema'
+import path from 'path'
+import { envConfig, helmetConfig, queueConfig } from './config'
+import { requestContextMiddleware, requestLoggerMiddleware } from './provider'
+import helmet from 'helmet'
+import { timezoneMiddleware } from './middleware/timezone.middleware'
+import { LoggerProvider } from './provider/logger.provider'
+import { setLogger, setRedisService } from '@anantai/common'
+import { loadAllServer } from './mcp/sdk/server'
+import { mongoConnection } from './database/connection/mongoConnection'
+import yaml from 'js-yaml'
+import fs from 'fs'
+const app = express()
+app.set('etag', false)
+const logger = LoggerProvider.Instance.logger
+// Bridge Winston logger to @anantai/common so repositories use it
+setLogger(logger as any)
+// Bridge Redis service to @anantai/common for counter model
+import { RedisService } from './service/redis.service'
+import {loadClassesFrom} from './utils'
+setRedisService(RedisService.Instance as any)
+/**
+ * Extract body parameters from a Lambda handler source file by parsing
+ * destructured properties from `const { ... } = body` or `JSON.parse(event.body`.
+ */
+function extractBodyParams(filePath: string): Array<{ name: string; required: boolean; hint: string }> {
+  try {
+    if (!fs.existsSync(filePath)) return []
+    const src = fs.readFileSync(filePath, 'utf8')
+    const params: Array<{ name: string; required: boolean; hint: string }> = []
+
+    // Match: const { orgId, code, redirectUri } = body  OR  const { orgId, provider = 'google' } = body
+    const destructureMatch = src.match(/const\s*\{([^}]+)\}\s*=\s*(?:body|JSON\.parse\(event\.body)/g)
+    if (destructureMatch) {
+      for (const match of destructureMatch) {
+        const inner = match.match(/\{([^}]+)\}/)?.[1] || ''
+        inner.split(',').forEach(p => {
+          const trimmed = p.trim()
+          if (!trimmed) return
+          // Handle default values: provider = 'google'
+          const [name, defaultVal] = trimmed.split('=').map(s => s.trim())
+          if (name) {
+            params.push({
+              name,
+              required: !defaultVal,
+              hint: defaultVal ? `default: ${defaultVal}` : '',
+            })
+          }
+        })
+      }
+    }
+
+    // Also check for explicit body.fieldName access
+    const bodyAccessMatches = src.matchAll(/body\.(\w+)/g)
+    for (const m of bodyAccessMatches) {
+      const name = m[1]
+      if (!params.find(p => p.name === name)) {
+        // Check if there's a required validation: if (!body.field) return error(...)
+        const requiredPattern = new RegExp(`if\\s*\\(\\s*!\\s*body\\.${name}`)
+        params.push({
+          name,
+          required: requiredPattern.test(src),
+          hint: '',
+        })
+      }
+    }
+
+    // Mark params that have explicit required checks: if (!orgId)
+    params.forEach(p => {
+      const requiredCheck = new RegExp(`if\\s*\\(\\s*!\\s*${p.name}\\s*\\)`)
+      if (requiredCheck.test(src)) p.required = true
+    })
+
+    return params
+  } catch {
+    return []
+  }
+}
+
+async function loadServer() {
+  app.set('trust proxy', true)
+  app.use(requestContextMiddleware)
+  app.use(requestLoggerMiddleware)
+  app.use(timezoneMiddleware)
+  new CorsProvider().corsRequest(app)
+
+  // Initialize MongoDB connection (must be before MigrationObserver which queries DB)
+  try {
+    await mongoConnection.connect()
+    logger.info('MongoDB connected successfully')
+  } catch (error) {
+    logger.error('Failed to connect to MongoDB:', error)
+    // Don't exit - allow app to continue starting even if MongoDB fails
+  }
+
+  await MigrationObserver.getInstance().start()
+  app.use(helmet(helmetConfig as any))
+  app.use(
+    express.json({
+      verify: (req: any, _res, buf) => {
+        req.rawBody = buf.toString()
+      },
+    }),
+  )
+  app.use(express.json())
+  app.use(express.urlencoded({ extended: true }))
+  await loadAllServer(app)
+
+
+  // CSP violation report endpoint
+
+  // Lambda API Tester page (before routing-controllers to avoid auth middleware)
+  app.get('/lambda', (_req, res) => {
+    res.sendFile(path.join(__dirname, '../../public', 'lambda.html'))
+  })
+
+  // Lambda functions metadata endpoint (before routing-controllers to avoid auth middleware)
+  app.get('/api/lambda/functions', (_req, res): void => {
+    try {
+      const serverlessPath = path.join(__dirname, '../../lambda-service/serverless.yml')
+      if (!fs.existsSync(serverlessPath)) {
+        res.json({ functions: [], error: 'serverless.yml not found' })
+        return
+      }
+      const content = fs.readFileSync(serverlessPath, 'utf8')
+      const config = yaml.load(content) as any
+
+      const functions: any[] = []
+      if (config?.functions) {
+        for (const [name, fn] of Object.entries(config.functions as Record<string, any>)) {
+          const events = fn.events || []
+          const httpEvents = events
+            .filter((e: any) => e.http || e.httpApi)
+            .map((e: any) => {
+              const http = e.http || e.httpApi
+              return {
+                path: http.path,
+                method: (http.method || 'ANY').toUpperCase(),
+                cors: http.cors || false,
+              }
+            })
+          const scheduleEvents = events
+            .filter((e: any) => e.schedule)
+            .map((e: any) => ({
+              rate: e.schedule.rate || e.schedule,
+              enabled: e.schedule.enabled !== false,
+              description: e.schedule.description || '',
+            }))
+
+          // Read handler source to extract body params
+          const bodyParams = extractBodyParams(path.join(__dirname, `../../lambda-service/src/handlers/${name}.ts`))
+
+          functions.push({
+            name,
+            description: fn.description || '',
+            timeout: fn.timeout || config?.provider?.timeout || 30,
+            memorySize: fn.memorySize || config?.provider?.memorySize || 256,
+            httpEvents,
+            scheduleEvents,
+            bodyParams,
+          })
+        }
+      }
+
+      res.json({
+        service: config?.service || 'unknown',
+        stage: config?.provider?.stage || 'dev',
+        runtime: config?.provider?.runtime || 'nodejs20.x',
+        region: config?.provider?.region || 'ap-south-1',
+        offlinePort: config?.custom?.['serverless-offline']?.httpPort || 4000,
+        functions,
+      })
+    } catch (err: any) {
+      res.status(500).json({ error: err.message })
+    }
+  })
+
+  const controllers = [
+    require('./controllers/authController').AuthController,
+    require('./controllers/adminController').AdminController,
+    require('./controllers/userController').UserController,
+    require('./controllers/roleController').RolesController,
+    require('./controllers/organizationConfigurationController').OrganizationConfigurationController,
+  ]
+  const middlewares = loadClassesFrom(path.join(__dirname, 'middlewares'))
+
+  // Sort controller metadata so more-specific routes (e.g. /treatment/task)
+  // are registered before parameterized routes (e.g. /treatment/:planId)
+  getMetadataArgsStorage().controllers.sort((a, b) => {
+    const aRoute = (a.route || '') as string
+    const bRoute = (b.route || '') as string
+    return bRoute.length - aRoute.length
+  })
+
+  useExpressServer(app, {
+    controllers,
+    routePrefix: '/api',
+    middlewares,
+    defaultErrorHandler: false,
+    classTransformer: true, // ✅ Enables class-transformer decorators like @CleanOptional()
+    defaults: {
+      undefinedResultCode: 200, // Returns 200 instead of 404 when handler returns undefined
+    },
+    validation: {
+      whitelist: true, // 🚫 Removes extra properties not in DTO
+      forbidNonWhitelisted: true, // ❌ Throws error if extra properties are sent
+    },
+    currentUserChecker: async action => {
+      return action.request.user // set in middleware
+    },
+  })
+  const schemas = validationMetadatasToSchemas({
+    refPointerPrefix: '#/components/schemas/',
+  })
+  const storage = getMetadataArgsStorage()
+  const spec = routingControllersToSpec(
+    storage,
+    {
+      routePrefix: '/api',
+      controllers,
+    },
+    {
+      components: {
+        schemas,
+        securitySchemes: {
+          bearerAuth: {
+            type: 'http',
+            scheme: 'bearer',
+            bearerFormat: 'JWT',
+          },
+          basicAuth: {
+            type: 'http',
+            scheme: 'basic',
+            description: 'Enter your email as username and password. After login, the JWT token will be auto-set.',
+          },
+        },
+        parameters: {
+          latitude: {
+            in: 'header',
+            name: 'latitude',
+            required: false,
+            schema: { type: 'string', example: '849.899800' },
+          },
+          longitude: {
+            in: 'header',
+            name: 'longitude',
+            required: false,
+            schema: { type: 'string', example: '849.899800' },
+          },
+          deviceName: {
+            in: 'header',
+            name: 'deviceName',
+            required: false,
+            schema: { type: 'string', example: 'OnePlus' },
+          },
+          deviceType: {
+            in: 'header',
+            name: 'deviceType',
+            required: false,
+            schema: { type: 'string', example: 'ANDROID' },
+          },
+          deviceId: {
+            in: 'header',
+            name: 'deviceId',
+            required: false,
+            schema: { type: 'string', example: '89808098' },
+          },
+          version: { in: 'header', name: 'version', required: false, schema: { type: 'string', example: '1.0.5' } },
+          location: { in: 'header', name: 'location', required: false, schema: { type: 'string', example: 'ASAWA' } },
+          'X-Timezone': {
+            in: 'header',
+            name: 'X-Timezone',
+            required: false,
+            schema: { type: 'string', example: 'Asia/Kolkata' },
+            description:
+              'IANA timezone name for date/time fields (e.g., Asia/Kolkata, America/New_York, Europe/London)',
+          },
+        },
+        headers: {
+          latitude: { $ref: '#/components/parameters/latitude' },
+          longitude: { $ref: '#/components/parameters/longitude' },
+          deviceName: { $ref: '#/components/parameters/deviceName' },
+          deviceType: { $ref: '#/components/parameters/deviceType' },
+          deviceId: { $ref: '#/components/parameters/deviceId' },
+          version: { $ref: '#/components/parameters/version' },
+          location: { $ref: '#/components/parameters/location' },
+        },
+      },
+      security: [{ bearerAuth: [] }],
+      info: {
+        title: 'User API',
+        version: '1.0.0',
+      },
+    },
+  )
+
+  // Inject Lambda endpoints into Swagger spec from serverless.yml
+  try {
+    const serverlessPath = path.join(__dirname, '../../lambda-service/serverless.yml')
+    if (fs.existsSync(serverlessPath)) {
+      const slsContent = fs.readFileSync(serverlessPath, 'utf8')
+      const slsConfig = yaml.load(slsContent) as any
+      if (slsConfig?.functions) {
+        if (!spec.paths) spec.paths = {}
+        if (!spec.tags) spec.tags = []
+        spec.tags.push({ name: 'Lambda', description: 'Lambda (Serverless) endpoints — runs on separate port' })
+
+        for (const [name, fn] of Object.entries(slsConfig.functions as Record<string, any>)) {
+          const events = (fn as any).events || []
+          const handlerFile = path.join(__dirname, `../../lambda-service/src/handlers/${name}.ts`)
+          const bodyParams = extractBodyParams(handlerFile)
+
+          for (const event of events) {
+            if (!event.http) continue
+            const httpPath = `/${(event.http.path as string).replace(/^\//, '')}`
+            const method = ((event.http.method as string) || 'post').toLowerCase()
+
+            const properties: any = {}
+            const required: string[] = []
+            bodyParams.forEach(p => {
+              properties[p.name] = {
+                type: 'string',
+                ...(p.hint ? { description: p.hint } : {}),
+              }
+              if (p.required) required.push(p.name)
+            })
+
+            if (!spec.paths[httpPath]) spec.paths[httpPath] = {}
+            ;(spec.paths[httpPath] as any)[method] = {
+              tags: ['Lambda'],
+              summary: (fn as any).description || name,
+              operationId: `lambda_${name}_${method}`,
+              security: [],
+              requestBody: Object.keys(properties).length
+                ? {
+                    required: true,
+                    content: {
+                      'application/json': {
+                        schema: {
+                          type: 'object',
+                          properties,
+                          ...(required.length ? { required } : {}),
+                        },
+                      },
+                    },
+                  }
+                : undefined,
+              responses: {
+                '200': { description: 'Success' },
+                '400': { description: 'Bad request' },
+                '500': { description: 'Internal error' },
+              },
+            }
+          }
+        }
+      }
+    }
+  } catch (err: any) {
+    logger.warn('Failed to inject Lambda endpoints into Swagger spec', { error: err.message })
+  }
+
+  // Serve Swagger UI at /docs
+  const swaggerCustomJs = `
+    const origFetch = window.fetch;
+    window.fetch = async function(...args) {
+      const res = await origFetch.apply(this, args);
+      try {
+        const url = typeof args[0] === 'string' ? args[0] : args[0]?.url;
+        if (url && url.includes('/api/auth/login') && res.ok) {
+          const cloned = res.clone();
+          const body = await cloned.json();
+          if (body && body.token) {
+            setTimeout(function() {
+              if (window.ui) {
+                window.ui.authActions.authorize({
+                  bearerAuth: {
+                    name: 'bearerAuth',
+                    schema: { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
+                    value: body.token
+                  }
+                });
+              }
+            }, 300);
+          }
+        }
+      } catch(e) {}
+      return res;
+    };
+  `
+  app.use(
+    '/docs',
+    swaggerUi.serve,
+    swaggerUi.setup(spec, {
+      swaggerOptions: { persistAuthorization: true },
+      customJsStr: swaggerCustomJs,
+    } as any),
+  )
+  // Health check endpoint
+  app.get('/health', (_req, res) => {
+    res.json({ status: 'ok', timestamp: new Date().toISOString() })
+  })
+
+
+  app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+    res.status(err.status || 500).json({ err: err.message ?? 'Internal Server Error' })
+  })
+
+  const server = app.listen(envConfig.PORT, async () => {
+    // Increased timeouts for long-running MCP operations
+    server.keepAliveTimeout = 300000 // 5 minutes (300 seconds)
+    server.headersTimeout = 310000 // Slightly more than keepAliveTimeout
+    server.requestTimeout = 300000 // 5 minutes request timeout
+    logger.info(`Server is running on port ${envConfig.PORT}`)
+
+    // SOP auto-seed removed - SOP treatment types are now created via UI/API
+  })
+
+  // Graceful shutdown
+  process.on('SIGTERM', async () => {
+    logger.info('SIGTERM signal received: closing HTTP server')
+    server.close(async () => {
+      logger.info('HTTP server closed')
+
+      // Close MongoDB connection
+      await mongoConnection.disconnect()
+      logger.info('MongoDB connection closed')
+
+      // Close queue if enabled
+      if (queueConfig.enabled) {
+        const { RedisService } = await import('./service/redis.service')
+        await RedisService.Instance.close()
+        logger.info('Queue and Redis connections closed')
+      }
+
+      process.exit(0)
+    })
+  })
+
+}
+
+loadServer().catch(error => {
+  logger.error('Error loading server: ', error)
+  console.log('Error loading server:  ', error)
+  process.exit(1)
+})
+
+// --- Auto-mounted ChatKit routes (added by ChatGPT) ---

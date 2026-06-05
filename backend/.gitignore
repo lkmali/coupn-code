@@ -1,0 +1,23 @@
+node_modules
+dist
+.env
+coverage
+.DS_Store
+*.log
+*.tsbuildinfo
+.vscode
+logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.idea
+.vscode-test
+new-code
+
+# Lambda service
+lambda-service/dist
+lambda-service/node_modules
+lambda-service/.esbuild
+lambda-service/.serverless
+lambda-service/.env
+exotel_fullstack_ts/

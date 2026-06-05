@@ -1,0 +1,466 @@
+{
+    "addLeadRequestDto": {
+        "description": "Request body to add or update a lead with contact and appointment details",
+        "required": true,
+        "content": {
+            "application/json": {
+                "schema": {
+                    "$ref": "#/components/schemas/AddLeadAgentDto"
+                },
+                "example": {
+                    "name": "Rajesh Kumar",
+                    "email": "rajesh.kumar@example.com",
+                    "mobileNumber": "9876543210",
+                    "source": "WHATSAPP",
+                    "notes": "Patient inquired about dental treatment",
+                    "referenceId": "shukan-9876543210",
+                    "description": "Interested in teeth whitening and cleaning",
+                    "followUpDate": "2025-10-25T10:00:00.000Z",
+                    "gender": "MALE",
+                    "age": 35,
+                    "dob": "15/08/1990",
+                    "userSentimentSummary": "Patient seems interested and motivated",
+                    "others": "Additional patient information",
+                    "aiSummary": "Patient interested in cosmetic dental procedures, seems motivated",
+                    "appointmentDate": "2025-10-20T14:30:00.000Z",
+                    "language": "Hindi",
+                    "instagramId": "rajesh_kumar_123",
+                    "messengerId": "messenger_rajesh_123",
+                    "requiredFollowup": true,
+                    "followupCounts": 2,
+                    "isValidName": true
+                }
+            }
+        }
+    },
+    "getLeadRequestDto": {
+        "description": "Request body to retrieve a lead by leadId or referenceId",
+        "required": true,
+        "content": {
+            "application/json": {
+                "schema": {
+                    "$ref": "#/components/schemas/GetLeadAgentDto"
+                },
+                "example": {
+                    "referenceId": "shukan-9876543210"
+                }
+            }
+        }
+    },
+    "getLeadFullInfoRequestDto": {
+        "description": "Request body to get complete lead information including all activities and appointments",
+        "required": true,
+        "content": {
+            "application/json": {
+                "schema": {
+                    "$ref": "#/components/schemas/GetLeadFullInfoAgentDto"
+                },
+                "example": {
+                    "referenceId": "shukan-9876543210"
+                }
+            }
+        }
+    },
+    "addActivityRequestDto": {
+        "description": "Request body to add an activity (call, email, note, etc.) to a lead",
+        "required": true,
+        "content": {
+            "application/json": {
+                "schema": {
+                    "$ref": "#/components/schemas/AddActivityAgentDto"
+                },
+                "example": {
+                    "referenceId": "shukan-9876543210",
+                    "activityType": "PHONE_CALL",
+                    "title": "Follow-up call completed",
+                    "description": "Discussed treatment options and pricing with the patient",
+                    "source": "WHATSAPP",
+                    "result": "Patient agreed to book appointment",
+                    "nextAction": "Send appointment confirmation",
+                    "duration": 15,
+                    "activityTime": "2025-10-18T15:30:00.000Z",
+                    "noteTags": [
+                        "follow-up",
+                        "interested"
+                    ]
+                }
+            }
+        }
+    },
+    "addCallActivityRequestDto": {
+        "description": "Request body to add detailed call activity information to a lead",
+        "required": true,
+        "content": {
+            "application/json": {
+                "schema": {
+                    "$ref": "#/components/schemas/AddCallActivityAgentDto"
+                },
+                "example": {
+                    "referenceId": "shukan-9876543210",
+                    "callId": "call_1729254789_9876543210",
+                    "sid": "CA1234567890abcdef1234567890abcdef",
+                    "direction": "OUTBOUND",
+                    "callStatus": "completed",
+                    "callSuccessful": true,
+                    "callDuration": 180,
+                    "description": "Patient inquiry about dental treatment options and availability",
+                    "action": "Book appointment for consultation",
+                    "disconnectionReason": "Call completed successfully",
+                    "userSentiment": "positive",
+                    "circle": "hot",
+                    "aiSummery": "Patient is interested in dental treatment and wants to book an appointment soon",
+                    "recordingUrl": "https://example.com/recordings/call_1729254789.mp3",
+                    "requiredFollowup": true,
+                    "followupCounts": 1,
+                    "followUpDate": "2025-11-05T10:00:00.000Z"
+                }
+            }
+        }
+    },
+    "bookAppointmentRequestDto": {
+        "description": "Request body to book a new appointment for a patient",
+        "required": true,
+        "content": {
+            "application/json": {
+                "schema": {
+                    "$ref": "#/components/schemas/BookAppointmentAgentDto"
+                },
+                "example": {
+                    "referenceId": "shukan-9876543210",
+                    "doctorId": 5,
+                    "doctorName": "Dr. Sharma",
+                    "patientId": 123,
+                    "patientName": "Rajesh Kumar",
+                    "appointmentDate": "2025-10-22T10:00:00.000Z",
+                    "appointmentType": "CONSULTATION",
+                    "description": "Initial consultation for dental treatment",
+                    "source": "WHATSAPP",
+                    "duration": 30
+                }
+            }
+        }
+    },
+    "getAppointmentRequestDto": {
+        "description": "Request body to retrieve appointments with various filters",
+        "required": true,
+        "content": {
+            "application/json": {
+                "schema": {
+                    "$ref": "#/components/schemas/GetAppointmentAgentDto"
+                },
+                "example": {
+                    "referenceId": "shukan-9876543210",
+                    "status": "PENDING"
+                }
+            }
+        }
+    },
+    "checkAvailabilityRequestDto": {
+        "description": "Request body to check if a specific appointment slot is available",
+        "required": true,
+        "content": {
+            "application/json": {
+                "schema": {
+                    "$ref": "#/components/schemas/CheckAvailabilityAgentDto"
+                },
+                "example": {
+                    "appointmentDate": "2025-10-22T10:00:00.000Z"
+                }
+            }
+        }
+    },
+    "cancelAppointmentRequestDto": {
+        "description": "Request body to cancel an existing appointment",
+        "required": true,
+        "content": {
+            "application/json": {
+                "schema": {
+                    "$ref": "#/components/schemas/CancelAppointmentAgentDto"
+                },
+                "example": {
+                    "appointmentId": 123,
+                    "reason": "Patient requested rescheduling due to emergency"
+                }
+            }
+        }
+    },
+    "getWhatsAppHistoryRequestDto": {
+        "description": "Request body to get WhatsApp message history",
+        "required": true,
+        "content": {
+            "application/json": {
+                "schema": {
+                    "$ref": "#/components/schemas/GetWhatsAppHistoryAgentDto"
+                },
+                "example": {
+                    "mobileNumber": "919876543210"
+                }
+            }
+        }
+    },
+    "leadSuccessResponseDto": {
+        "200": {
+            "description": "Success response when lead is created or updated successfully",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "$ref": "#/components/schemas/LeadSuccessResponseDto"
+                    },
+                    "example": {
+                        "leadId": 456,
+                        "referenceId": "shukan-9876543210",
+                        "name": "Rajesh Kumar",
+                        "mobileNumber": "9876543210",
+                        "email": "rajesh.kumar@example.com",
+                        "status": "ACTIVE",
+                        "source": "WHATSAPP",
+                        "gender": "MALE",
+                        "age": 35,
+                        "createdAt": "2025-10-18T12:00:00.000Z",
+                        "message": "Lead created successfully"
+                    }
+                }
+            }
+        }
+    },
+    "leadDetailsResponseDto": {
+        "200": {
+            "description": "Success response containing detailed lead information",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "$ref": "#/components/schemas/LeadDetailsResponseDto"
+                    },
+                    "example": {
+                        "leadId": 456,
+                        "referenceId": "shukan-9876543210",
+                        "name": "Rajesh Kumar",
+                        "mobileNumber": "9876543210",
+                        "email": "rajesh.kumar@example.com",
+                        "status": "ACTIVE",
+                        "source": "WHATSAPP",
+                        "age": 35,
+                        "gender": "MALE",
+                        "notes": "Patient inquired about dental treatment",
+                        "followUpDate": "2025-10-25T10:00:00.000Z",
+                        "createdAt": "2025-10-18T12:00:00.000Z",
+                        "updatedAt": "2025-10-18T12:00:00.000Z"
+                    }
+                }
+            }
+        }
+    },
+    "leadFullInfoResponseDto": {
+        "200": {
+            "description": "Success response with complete lead information including activities and appointments",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "$ref": "#/components/schemas/LeadFullInfoResponseDto"
+                    },
+                    "example": {
+                        "leadId": 456,
+                        "referenceId": "shukan-9876543210",
+                        "name": "Rajesh Kumar",
+                        "mobileNumber": "9876543210",
+                        "email": "rajesh.kumar@example.com",
+                        "status": "ACTIVE",
+                        "activities": [
+                            {
+                                "activityId": 789,
+                                "activityType": "PHONE_CALL",
+                                "title": "Follow-up call completed",
+                                "description": "Discussed treatment options",
+                                "activityTime": "2025-10-18T15:30:00.000Z",
+                                "duration": 15
+                            }
+                        ],
+                        "appointments": [
+                            {
+                                "appointmentId": 123,
+                                "doctorName": "Dr. Sharma",
+                                "appointmentDate": "2025-10-22T10:00:00.000Z",
+                                "status": "PENDING"
+                            }
+                        ]
+                    }
+                }
+            }
+        }
+    },
+    "activitySuccessResponseDto": {
+        "200": {
+            "description": "Success response when activity is added successfully",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "$ref": "#/components/schemas/ActivitySuccessResponseDto"
+                    },
+                    "example": {
+                        "activityId": 789,
+                        "leadId": 456,
+                        "activityType": "PHONE_CALL",
+                        "title": "Follow-up call completed",
+                        "activityTime": "2025-10-18T15:30:00.000Z",
+                        "message": "Activity added successfully"
+                    }
+                }
+            }
+        }
+    },
+    "appointmentSuccessResponseDto": {
+        "200": {
+            "description": "Success response when appointment is booked successfully",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "$ref": "#/components/schemas/AppointmentSuccessResponseDto"
+                    },
+                    "example": {
+                        "appointmentId": 123,
+                        "patientId": 789,
+                        "doctorId": 5,
+                        "appointmentDate": "2025-10-22T10:00:00.000Z",
+                        "status": "PENDING",
+                        "message": "Appointment booked successfully"
+                    }
+                }
+            }
+        }
+    },
+    "appointmentListResponseDto": {
+        "200": {
+            "description": "Success response containing list of appointments",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "$ref": "#/components/schemas/AppointmentListResponseDto"
+                    },
+                    "example": {
+                        "count": 3,
+                        "data": [
+                            {
+                                "appointmentId": 123,
+                                "patientName": "Rajesh Kumar",
+                                "doctorName": "Dr. Sharma",
+                                "appointmentDate": "2025-10-22T10:00:00.000Z",
+                                "appointmentType": "CONSULTATION",
+                                "status": "PENDING",
+                                "description": "Initial consultation"
+                            },
+                            {
+                                "appointmentId": 124,
+                                "patientName": "Priya Singh",
+                                "doctorName": "Dr. Verma",
+                                "appointmentDate": "2025-10-23T14:00:00.000Z",
+                                "appointmentType": "FOLLOW_UP",
+                                "status": "COMPLETED",
+                                "description": "Follow-up checkup"
+                            }
+                        ]
+                    }
+                }
+            }
+        }
+    },
+    "availabilityResponseDto": {
+        "200": {
+            "description": "Success response containing available appointment slots",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "$ref": "#/components/schemas/AvailabilityResponseDto"
+                    },
+                    "example": {
+                        "date": "2025-10-22",
+                        "availableSlots": [
+                            {
+                                "startTime": "10:00:00",
+                                "endTime": "10:30:00",
+                                "available": true
+                            },
+                            {
+                                "startTime": "10:30:00",
+                                "endTime": "11:00:00",
+                                "available": false
+                            },
+                            {
+                                "startTime": "11:00:00",
+                                "endTime": "11:30:00",
+                                "available": true
+                            }
+                        ]
+                    }
+                }
+            }
+        }
+    },
+    "cancelAppointmentResponseDto": {
+        "200": {
+            "description": "Success response when appointment is cancelled",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "$ref": "#/components/schemas/CancelAppointmentResponseDto"
+                    },
+                    "example": {
+                        "appointmentId": 123,
+                        "status": "CANCELLED",
+                        "cancelReason": "Patient requested rescheduling due to emergency",
+                        "message": "Appointment cancelled successfully"
+                    }
+                }
+            }
+        }
+    },
+    "errorResponseDto": {
+        "400": {
+            "description": "Bad Request - Invalid input data",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "$ref": "#/components/schemas/ErrorResponseDto"
+                    },
+                    "example": {
+                        "statusCode": 400,
+                        "message": "Validation failed",
+                        "errors": [
+                            {
+                                "field": "mobileNumber",
+                                "error": "mobileNumber must be a valid 10-digit number"
+                            }
+                        ]
+                    }
+                }
+            }
+        },
+        "401": {
+            "description": "Unauthorized - Invalid or missing BOT token",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "$ref": "#/components/schemas/ErrorResponseDto"
+                    },
+                    "example": {
+                        "statusCode": 401,
+                        "message": "Unauthorized access. BOT role required."
+                    }
+                }
+            }
+        },
+        "404": {
+            "description": "Not Found - Resource not found",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "$ref": "#/components/schemas/ErrorResponseDto"
+                    },
+                    "example": {
+                        "statusCode": 404,
+                        "message": "Lead not found with the provided referenceId"
+                    }
+                }
+            }
+        }
+    }
+}
