@@ -1,0 +1,168 @@
+name: Deploy UI to S3
+
+on:
+  push:
+    branches:
+      - development
+      - staging
+      - production
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    env:
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+
+    steps:
+      # ----------------------------------------
+      # Checkout code
+      # ----------------------------------------
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # ----------------------------------------
+      # Set branch name
+      # ----------------------------------------
+      - name: Set branch name
+        run: echo "BRANCH_NAME=${GITHUB_REF##*/}" >> $GITHUB_ENV
+
+      # ----------------------------------------
+      # Setup Node.js
+      # ----------------------------------------
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: UI/package-lock.json
+
+      # ----------------------------------------
+      # Install UI dependencies
+      # ----------------------------------------
+      - name: Install UI dependencies
+        run: npm --prefix UI ci
+
+      # ----------------------------------------
+      # Resolve per-branch API base URL
+      # ----------------------------------------
+      - name: Resolve API base URL
+        run: |
+          if [ "$BRANCH_NAME" = "development" ]; then
+            echo "NEXT_PUBLIC_API_BASE_URL=${{ secrets.API_URL_DEV }}" >> $GITHUB_ENV
+          elif [ "$BRANCH_NAME" = "staging" ]; then
+            echo "NEXT_PUBLIC_API_BASE_URL=${{ secrets.API_URL_STAGING }}" >> $GITHUB_ENV
+          elif [ "$BRANCH_NAME" = "production" ]; then
+            echo "NEXT_PUBLIC_API_BASE_URL=${{ secrets.API_URL_PROD }}" >> $GITHUB_ENV
+          else
+            echo "❌ Unknown branch: $BRANCH_NAME"
+            exit 1
+          fi
+
+      # ----------------------------------------
+      # Build UI (Next.js static export -> UI/out)
+      # ----------------------------------------
+      - name: Build UI
+        env:
+          NEXT_PUBLIC_API_BASE_URL: ${{ env.NEXT_PUBLIC_API_BASE_URL }}
+        run: npm --prefix UI run build
+
+      # ----------------------------------------
+      # Verify build output
+      # ----------------------------------------
+      - name: Verify build output
+        run: |
+          test -d UI/out || (echo "❌ Build failed: UI/out folder not found" && exit 1)
+          ls -la UI/out
+
+      # ----------------------------------------
+      # Configure AWS credentials
+      # ----------------------------------------
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      # ----------------------------------------
+      # Deploy to S3 (with retry)
+      # ----------------------------------------
+      - name: Deploy to S3
+        run: |
+          if [ "$BRANCH_NAME" = "development" ]; then
+            BUCKET=${{ secrets.AWS_S3_BUCKET_DEV }}
+          elif [ "$BRANCH_NAME" = "staging" ]; then
+            BUCKET=${{ secrets.AWS_S3_BUCKET_STAGING }}
+          elif [ "$BRANCH_NAME" = "production" ]; then
+            BUCKET=${{ secrets.AWS_S3_BUCKET_PROD }}
+          else
+            echo "❌ Unknown branch: $BRANCH_NAME"
+            exit 1
+          fi
+
+          echo "🚀 Deploying UI/out to S3 bucket: $BUCKET"
+
+          # Two-pass upload:
+          #   1) Hashed, immutable assets (_next/static/*) -> cache forever.
+          #   2) Everything else (HTML, etc.) -> never cache, so new deploys
+          #      are picked up immediately once CloudFront is invalidated.
+          deploy() {
+            aws s3 sync UI/out s3://$BUCKET \
+              --delete \
+              --exclude "publicImage/*" \
+              --exclude "*.html" \
+              --exclude "_next/static/*" \
+              --cache-control "public, max-age=3600" || return 1
+
+            aws s3 sync UI/out/_next/static s3://$BUCKET/_next/static \
+              --delete \
+              --cache-control "public, max-age=31536000, immutable" || return 1
+
+            aws s3 sync UI/out s3://$BUCKET \
+              --exclude "*" \
+              --include "*.html" \
+              --cache-control "no-cache" \
+              --content-type "text/html" || return 1
+          }
+
+          SUCCESS=false
+
+          for i in {1..5}; do
+            echo "Attempt $i: Uploading to S3..."
+
+            if deploy; then
+              SUCCESS=true
+              break
+            fi
+
+            echo "❌ Attempt $i failed, retrying in 5 seconds..."
+            sleep 5
+          done
+
+          if [ "$SUCCESS" = false ]; then
+            echo "❌ S3 deployment failed after 5 attempts"
+            exit 1
+          fi
+
+      # ----------------------------------------
+      # CloudFront invalidation
+      # ----------------------------------------
+      - name: Invalidate CloudFront cache
+        run: |
+          if [ "$BRANCH_NAME" = "development" ]; then
+            DIST_ID=${{ secrets.CLOUDFRONT_DISTRIBUTION_ID_DEV }}
+          elif [ "$BRANCH_NAME" = "staging" ]; then
+            DIST_ID=${{ secrets.CLOUDFRONT_DISTRIBUTION_ID_STAGING }}
+          elif [ "$BRANCH_NAME" = "production" ]; then
+            DIST_ID=${{ secrets.CLOUDFRONT_DISTRIBUTION_ID_PROD }}
+          else
+            echo "❌ Unknown branch: $BRANCH_NAME"
+            exit 1
+          fi
+
+          echo "♻️ Invalidating CloudFront distribution: $DIST_ID"
+
+          aws cloudfront create-invalidation \
+            --distribution-id "$DIST_ID" \
+            --paths "/*"
