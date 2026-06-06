@@ -1,0 +1,845 @@
+[
+    {
+        "type": "function",
+        "title": "lead",
+        "description": "Create a new lead with basic details. This action strictly creates a new lead and will fail if the mobile number already exists.",
+        "function": {
+            "name": "addNewLead",
+            "description": "Create a new lead using name, mobile number, and description. Mobile number must NOT already exist.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "description": "Full name of the lead (required)."
+                    },
+                    "mobileNumber": {
+                        "type": "string",
+                        "description": "Unique mobile number (required, 10-digit or 91XXXXXXXXXX).",
+                        "pattern": "^(?:91[0-9]{10}|[0-9]{10})$"
+                    },
+                    "source": {
+                        "type": "string",
+                        "description": "How the lead was acquired (optional).",
+                        "enum": [
+                            "WALK_IN",
+                            "CALL",
+                            "WEBSITE",
+                            "REFERRAL",
+                            "SOCIAL_MEDIA",
+                            "OTHER",
+                            "WHATSAPP",
+                            "INSTAGRAM",
+                            "FACEBOOK",
+                            "EMAIL"
+                        ]
+                    },
+                    "notes": {
+                        "type": "string",
+                        "description": "Why the lead contacted you / notes (required)."
+                    },
+                    "email": {
+                        "type": "string",
+                        "description": "Email of the lead (optional).",
+                        "nullable": true,
+                        "pattern": "^[\\w.-]+@[\\w.-]+\\.[A-Za-z]{2,}$"
+                    },
+                    "gender": {
+                        "type": "string",
+                        "description": "Gender of the lead (optional).",
+                        "enum": [
+                            "MALE",
+                            "FEMALE",
+                            "OTHERS"
+                        ]
+                    },
+                    "age": {
+                        "type": "number",
+                        "description": "Age of the lead (optional).",
+                        "minimum": 0,
+                        "maximum": 120
+                    },
+                    "dob": {
+                        "type": "string",
+                        "description": "DOB in DD/MM/YYYY format (optional).",
+                        "pattern": "^(0[1-9]|[12][0-9]|3[01])\\/(0[1-9]|1[0-2])\\/\\d{4}$"
+                    },
+                    "language": {
+                        "type": "string",
+                        "description": "Preferred language (optional)."
+                    },
+                    "others": {
+                        "type": "string",
+                        "description": "Any additional notes (optional)."
+                    },
+                    "followUpDate": {
+                        "type": "string",
+                        "description": "When next follow-up should be done.",
+                        "format": "date-time"
+                    },
+                    "reminderCount": {
+                        "type": "number",
+                        "description": "Number of reminders sent (optional).",
+                        "minimum": 0
+                    },
+                    "isNeedSendTestimonial": {
+                        "type": "boolean",
+                        "description": "Whether to send testimonial to the lead (optional)."
+                    },
+                    "needToUpdateName": {
+                        "type": "boolean",
+                        "description": "Whether the lead name needs to be updated (optional)."
+                    }
+                },
+                "required": [
+                    "name",
+                    "mobileNumber",
+                    "source",
+                    "notes"
+                ]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "title": "lead",
+        "description": "Fetch a list of leads with filters such as search, status, date range, or pagination.",
+        "function": {
+            "name": "getLeadList",
+            "description": "Retrieve multiple leads with filtering and pagination support. Supports filtering by lead creation date via startDate/endDate (applied to createdAt).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "skip": {
+                        "type": "number",
+                        "minimum": 0
+                    },
+                    "limit": {
+                        "type": "number",
+                        "minimum": 1
+                    },
+                    "orderBy": {
+                        "type": "string",
+                        "enum": [
+                            "ASC",
+                            "DESC"
+                        ]
+                    },
+                    "sortBy": {
+                        "type": "string"
+                    },
+                    "search": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "ALL",
+                            "NEW",
+                            "NOT_PICKUP",
+                            "NOT_INTERESTED",
+                            "FOLLOW_UP",
+                            "CONVERTED",
+                            "DROPPED",
+                            "DEACTIVATED"
+                        ]
+                    },
+                    "source": {
+                        "type": "string",
+                        "enum": [
+                            "ALL", "WALK_IN", "WALK_IN_OPD", "WALK_IN_CAMP",
+                            "CALL", "WEBSITE", "REFERRAL", "SOCIAL_MEDIA", "OTHER",
+                            "INSTAGRAM", "WHATSAPP", "MESSENGER", "FACEBOOK", "EMAIL"
+                        ],
+                        "description": "Lead source. Must be UPPER_SNAKE_CASE exactly as listed."
+                    },
+                    "startDate": {
+                        "type": "string",
+                        "description": "Start of createdAt range (ISO 8601, e.g. '2026-05-21T00:00:00.000Z'). Use for arbitrary date ranges like 'leads added this week' or 'today'."
+                    },
+                    "endDate": {
+                        "type": "string",
+                        "description": "End of createdAt range (ISO 8601, e.g. '2026-05-21T23:59:59.999Z')."
+                    }
+                },
+                "required": []
+            }
+        }
+    },
+    {
+        "type": "function",
+        "title": "lead",
+        "description": "Open the edit-lead form for a lead. Use when the user wants to edit, update, modify, or change a lead's details. Call with no arguments if the user has not provided an identifier yet — this returns a card asking for a phone or lead number. Call with `identifier` when the user provides a phone number or lead number — this looks up the lead and returns its full details for the edit form.",
+        "function": {
+            "name": "editLead",
+            "description": "Begin an edit-lead flow. Returns a prompt card when no identifier is given; otherwise looks up the lead and returns the edit form (or a selection list if multiple match).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "identifier": {
+                        "type": "string",
+                        "description": "Phone number (e.g. '919824501520') or lead number (e.g. '217'). Omit this parameter to prompt the user for one."
+                    },
+                    "searchBy": {
+                        "type": "string",
+                        "description": "Which field to look the identifier up by. The frontend lets the user pick one of these explicitly when starting an edit-lead flow. If omitted, a heuristic is used.",
+                        "enum": [
+                            "mobileNumber",
+                            "leadNumber"
+                        ]
+                    }
+                },
+                "required": []
+            }
+        }
+    },
+    {
+        "type": "function",
+        "title": "lead",
+        "description": "Update an existing lead's details using its mobile number.",
+        "function": {
+            "name": "updateLead",
+            "description": "Update an existing lead. Mobile number is required; all other fields optional.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "mobileNumber": {
+                        "type": "string",
+                        "description": "Mobile number of the lead to update.",
+                        "pattern": "^(?:91[0-9]{10}|[0-9]{10})$"
+                    },
+                    "name": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "source": {
+                        "type": "string",
+                        "enum": [
+                            "WALK_IN",
+                            "CALL",
+                            "WEBSITE",
+                            "REFERRAL",
+                            "SOCIAL_MEDIA",
+                            "OTHER",
+                            "WHATSAPP",
+                            "INSTAGRAM",
+                            "FACEBOOK",
+                            "EMAIL"
+                        ],
+                        "nullable": true
+                    },
+                    "description": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "email": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "gender": {
+                        "type": "string",
+                        "enum": [
+                            "MALE",
+                            "FEMALE",
+                            "OTHERS"
+                        ],
+                        "nullable": true
+                    },
+                    "age": {
+                        "type": "number",
+                        "nullable": true
+                    },
+                    "dob": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "language": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "others": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "followUpDate": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "reminderCount": {
+                        "type": "number",
+                        "description": "Number of reminders sent (optional).",
+                        "minimum": 0,
+                        "nullable": true
+                    },
+                    "isNeedSendTestimonial": {
+                        "type": "boolean",
+                        "description": "Whether to send testimonial to the lead (optional).",
+                        "nullable": true
+                    },
+                    "needToUpdateName": {
+                        "type": "boolean",
+                        "description": "Whether the lead name needs to be updated (optional).",
+                        "nullable": true
+                    }
+                },
+                "required": [
+                    "mobileNumber"
+                ]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "title": "lead",
+        "description": "Record an activity such as call, task, note, or appointment for a lead.",
+        "function": {
+            "name": "addActivity",
+            "description": "Add activity for a lead using mobile number.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "mobileNumber": {
+                        "type": "string",
+                        "description": "Lead mobile number.",
+                        "pattern": "^(?:91[0-9]{10}|[0-9]{10})$"
+                    },
+                    "activityType": {
+                        "type": "string",
+                        "enum": [
+                            "PHONE_CALL",
+                            "EMAIL",
+                            "APPOINTMENT",
+                            "NOTE",
+                            "TASK",
+                            "DOCUMENT",
+                            "TREATMENT",
+                            "FOLLOW_UP",
+                            "OTHER"
+                        ]
+                    },
+                    "title": {
+                        "type": "string"
+                    },
+                    "description": {
+                        "type": "string"
+                    },
+                    "activityTime": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "source": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "result": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "nextAction": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "duration": {
+                        "type": "number",
+                        "nullable": true
+                    },
+                    "noteTags": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "required": [
+                    "mobileNumber",
+                    "activityType",
+                    "title",
+                    "activityTime"
+                ]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "title": "lead",
+        "description": "Get a lead's full details using only mobile number.",
+        "function": {
+            "name": "getLeadFullInfo",
+            "description": "Retrieve full details about a lead.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "mobileNumber": {
+                        "type": "string",
+                        "description": "Mobile number of the lead."
+                    }
+                },
+                "required": [
+                    "mobileNumber"
+                ]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "title": "lead",
+        "description": "Log detailed call information for a lead including call ID, status, duration, and disconnection reason.",
+        "function": {
+            "name": "addCallActivity",
+            "description": "Add call activity for a lead using mobile number as referenceId. Records call metadata like status, duration, and sentiment.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "mobileNumber": {
+                        "type": "string",
+                        "description": "Mobile number of the lead (used as referenceId).",
+                        "pattern": "^(?:91[0-9]{10}|[0-9]{10})$"
+                    },
+                    "callId": {
+                        "type": "string",
+                        "description": "Unique call identifier. Either callId or sid must be provided."
+                    },
+                    "sid": {
+                        "type": "string",
+                        "description": "Session ID of the call. Either callId or sid must be provided."
+                    },
+                    "callStatus": {
+                        "type": "string",
+                        "description": "Status of the call (optional)."
+                    },
+                    "callSuccessful": {
+                        "type": "boolean",
+                        "description": "Whether the call was successful (optional)."
+                    },
+                    "disconnectionReason": {
+                        "type": "string",
+                        "description": "Reason for call disconnection (optional)."
+                    },
+                    "callDuration": {
+                        "type": "number",
+                        "description": "Duration of the call in seconds (optional).",
+                        "minimum": 0
+                    },
+                    "description": {
+                        "type": "string",
+                        "description": "Description or notes about the call (optional)."
+                    },
+                    "action": {
+                        "type": "string",
+                        "description": "Action taken during or after the call (optional)."
+                    },
+                    "userSentiment": {
+                        "type": "string",
+                        "description": "Sentiment of the user during the call (optional)."
+                    },
+                    "circle": {
+                        "type": "string",
+                        "description": "Circle or region of the caller (optional)."
+                    },
+                    "aiSummery": {
+                        "type": "string",
+                        "description": "AI-generated summary of the call (optional)."
+                    },
+                    "recordingUrl": {
+                        "type": "string",
+                        "description": "URL of the call recording (optional).",
+                        "format": "uri"
+                    },
+                    "requiredFollowup": {
+                        "type": "boolean",
+                        "description": "Whether follow-up is required (optional)."
+                    },
+                    "followupCounts": {
+                        "type": "number",
+                        "description": "Number of follow-ups done (optional).",
+                        "minimum": 0
+                    },
+                    "reminderCount": {
+                        "type": "number",
+                        "description": "Number of reminders sent (optional).",
+                        "minimum": 0
+                    },
+                    "followUpDate": {
+                        "type": "string",
+                        "description": "Next follow-up date (optional).",
+                        "format": "date-time"
+                    },
+                    "direction": {
+                        "type": "string",
+                        "description": "Direction of the call (optional).",
+                        "enum": [
+                            "INBOUND",
+                            "OUTBOUND"
+                        ]
+                    }
+                },
+                "required": [
+                    "mobileNumber"
+                ]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "title": "lead",
+        "description": "Update follow-up details for a lead such as follow-up count and whether follow-up is required.",
+        "function": {
+            "name": "updateLeadFollowup",
+            "description": "Update follow-up information for a lead using mobile number as referenceId.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "mobileNumber": {
+                        "type": "string",
+                        "description": "Mobile number of the lead (used as referenceId).",
+                        "pattern": "^(?:91[0-9]{10}|[0-9]{10})$"
+                    },
+                    "followupCounts": {
+                        "type": "number",
+                        "description": "Number of follow-ups done (optional).",
+                        "minimum": 0
+                    },
+                    "requiredFollowup": {
+                        "type": "boolean",
+                        "description": "Whether follow-up is required (optional)."
+                    }
+                },
+                "required": [
+                    "mobileNumber"
+                ]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "title": "lead",
+        "description": "Send a WhatsApp message to a user using their mobile number.",
+        "function": {
+            "name": "sendWhatsappMessage",
+            "description": "Send a text message to a user via WhatsApp. Requires mobile number and message content.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "mobileNumber": {
+                        "type": "string",
+                        "description": "Mobile number of the user to send the message to. Must include country code (e.g., 91XXXXXXXXXX).",
+                        "pattern": "^(?:91[0-9]{10}|[0-9]{10})$"
+                    },
+                    "message": {
+                        "type": "string",
+                        "description": "The message content to send to the user."
+                    }
+                },
+                "required": [
+                    "mobileNumber",
+                    "message"
+                ]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "title": "lead",
+        "description": "Send a media reply back to a user via WhatsApp.",
+        "function": {
+            "name": "sendReplyBackMediaToUser",
+            "description": "Reply with media content to a user on WhatsApp using the message key ID.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "keyId": {
+                        "type": "string",
+                        "description": "The key ID of the message to reply with media."
+                    }
+                },
+                "required": [
+                    "keyId"
+                ]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "title": "lead",
+        "description": "Retrieve WhatsApp message history for a user for the last 3 months.",
+        "function": {
+            "name": "getWhatsAppHistory",
+            "description": "Fetch WhatsApp message history for a user using their mobile number. Returns all messages exchanged with the contact.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "mobileNumber": {
+                        "type": "string",
+                        "description": "Mobile number of the user to retrieve WhatsApp history for.",
+                        "pattern": "^(?:91[0-9]{10}|[0-9]{10})$"
+                    }
+                },
+                "required": [
+                    "mobileNumber"
+                ]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "title": "lead",
+        "description": "Send a WhatsApp template message to a user using a pre-configured template.",
+        "function": {
+            "name": "sendWhatsappTemplateMessage",
+            "description": "Send a WhatsApp template message to a user. Requires mobile number and template name. Optionally accepts body parameters to fill dynamic placeholders in the template body. Buttons and other components are configured in the template settings.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "mobileNumber": {
+                        "type": "string",
+                        "description": "Mobile number of the user to send the template message to. Must include country code (e.g., 91XXXXXXXXXX).",
+                        "pattern": "^(?:91[0-9]{10}|[0-9]{10})$"
+                    },
+                    "templateName": {
+                        "type": "string",
+                        "description": "The name/key of the WhatsApp template configured in the organization settings.",
+                        "enum": [
+                            "FOLLOW_UP_REMINDER",
+                            "CALL_ALERT",
+                            "APPOINTMENT_REMINDER"
+                        ]
+                    },
+                    "bodyParameters": {
+                        "type": "object",
+                        "default": {},
+                        "description": "Dynamic text values to fill body placeholders in order (optional). Example: [\"John\", \"Checkup\", \"10:00 AM\"]"
+                    }
+                },
+                "required": [
+                    "mobileNumber",
+                    "templateName"
+                ]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "title": "lead",
+        "description": "Block/deactivate a lead so they no longer receive communications or follow-ups. Use this when a lead requests to stop contact or is no longer relevant.",
+        "function": {
+            "name": "blockLead",
+            "description": "Block a lead using their mobile number. This deactivates the lead, stops all follow-ups and communications. Requires a reason for blocking.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "mobileNumber": {
+                        "type": "string",
+                        "description": "Mobile number of the lead to block.",
+                        "pattern": "^(?:91[0-9]{10}|[0-9]{10})$"
+                    },
+                    "reason": {
+                        "type": "string",
+                        "description": "Reason for blocking the lead (e.g., 'User requested no contact', 'Spam lead', 'Duplicate entry')."
+                    }
+                },
+                "required": [
+                    "mobileNumber"
+                ]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "title": "lead",
+        "description": "Generate a downloadable leads report (Excel). Returns all matching leads with their details so the frontend can render a table preview and offer an Excel download.",
+        "function": {
+            "name": "getLeadsReport",
+            "description": "Fetch leads data for a report. Returns an array of lead records with name, mobile, email, status, source, assignedToUser (resolved staff name), advertisementUrl (ad source URL), adDetails (ad name/platform/description or referral headline), notes, follow-up info, and timestamps. Rows are sorted DESC by createdAt so latest leads appear first. The frontend renders a table preview and an Excel download button. Use for 'leads report', 'export leads', 'download leads', 'leads excel', 'latest leads report', 'dropped leads report' (pass status=DROPPED), or any request to get a report/sheet of leads.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "status": {
+                        "type": "string",
+                        "description": "Filter by lead status.",
+                        "enum": [
+                            "ALL",
+                            "NEW",
+                            "NOT_PICKUP",
+                            "NOT_INTERESTED",
+                            "FOLLOW_UP",
+                            "CONVERTED",
+                            "DROPPED",
+                            "DEACTIVATED"
+                        ]
+                    },
+                    "source": {
+                        "type": "string",
+                        "description": "Filter by lead source.",
+                        "enum": [
+                            "WALK_IN",
+                            "CALL",
+                            "WEBSITE",
+                            "REFERRAL",
+                            "SOCIAL_MEDIA",
+                            "OTHER",
+                            "WHATSAPP",
+                            "INSTAGRAM",
+                            "FACEBOOK",
+                            "EMAIL"
+                        ]
+                    },
+                    "startDate": {
+                        "type": "string",
+                        "description": "Start date for the report period (ISO 8601, e.g. '2026-04-01T00:00:00.000Z'). Filters by lead creation date."
+                    },
+                    "endDate": {
+                        "type": "string",
+                        "description": "End date for the report period (ISO 8601, e.g. '2026-04-10T23:59:59.999Z'). Filters by lead creation date."
+                    },
+                    "search": {
+                        "type": "string",
+                        "description": "Case-insensitive substring match across name, mobile, email, notes, advertisement headline/body, advertisement URL, and advertisement name/description. Use this for ad-keyword queries (e.g. '99' for ₹99 ads), ad-URL queries (e.g. 'fb.me/abc'), and notes keyword queries (e.g. 'urgent', 'callback')."
+                    },
+                    "assignUserId": {
+                        "type": "string",
+                        "description": "Filter by assigned team member's user ID."
+                    },
+                    "followUpDateFrom": {
+                        "type": "string",
+                        "description": "Filter leads whose followUpDate >= this ISO datetime. Use for 'follow-ups due today/this week' (set From=today 00:00). For 'overdue' set To=now and omit From."
+                    },
+                    "followUpDateTo": {
+                        "type": "string",
+                        "description": "Filter leads whose followUpDate <= this ISO datetime. Pair with followUpDateFrom for a range."
+                    },
+                    "lastActivityFrom": {
+                        "type": "string",
+                        "description": "Filter leads whose lastActivityAt >= this ISO datetime."
+                    },
+                    "lastActivityTo": {
+                        "type": "string",
+                        "description": "Filter leads whose lastActivityAt <= this ISO datetime. Use for 'no activity in N days' — set To=(now - N days) and omit From."
+                    },
+                    "hasEmail": {
+                        "type": "boolean",
+                        "description": "true = email present and non-empty. false = email missing/null/empty."
+                    },
+                    "hasMobile": {
+                        "type": "boolean",
+                        "description": "true = mobile present and non-empty. false = mobile missing/null/empty."
+                    },
+                    "hasAssignee": {
+                        "type": "boolean",
+                        "description": "true = lead has an assignee. false = lead is unassigned. Combine with excludeAssignUserId to express 'assigned to someone other than X'."
+                    },
+                    "excludeAssignUserId": {
+                        "type": "string",
+                        "description": "Exclude leads assigned to this user ID. Use for negation like 'leads NOT assigned to me' — resolve the name to userId first."
+                    }
+                },
+                "required": []
+            }
+        }
+    },
+    {
+        "type": "function",
+        "title": "lead",
+        "description": "Resolve a contact by mobile number. Returns the patient if one exists for the org; otherwise returns the lead; otherwise indicates no record. Use this before sending WhatsApp messages so traffic routes to the correct entity.",
+        "function": {
+            "name": "lookupContactByMobile",
+            "description": "Look up a contact by mobile number. Patient takes precedence over lead. Returns `{ type: 'PATIENT', patient }`, `{ type: 'LEAD', lead }`, or `{ type: null }`.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "mobileNumber": {
+                        "type": "string",
+                        "description": "Mobile number to look up (10-digit or 91XXXXXXXXXX).",
+                        "pattern": "^(?:91[0-9]{10}|[0-9]{10})$"
+                    }
+                },
+                "required": [
+                    "mobileNumber"
+                ]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "title": "user",
+        "description": "Placeholder tool. List users in the organization. Not implemented yet.",
+        "function": {
+            "name": "listUsers",
+            "description": "List users in the organization. Optionally filter by a search term. (Placeholder — returns a not-implemented response for now.)",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "search": {
+                        "type": "string",
+                        "description": "Optional search term to filter users by name, email, or mobile number."
+                    },
+                    "limit": {
+                        "type": "number",
+                        "description": "Optional maximum number of users to return."
+                    }
+                },
+                "required": []
+            }
+        }
+    },
+    {
+        "type": "function",
+        "title": "user",
+        "description": "Placeholder tool. Get a single user's details by id. Not implemented yet.",
+        "function": {
+            "name": "getUserDetails",
+            "description": "Get a user's full details by their userId. (Placeholder — returns a not-implemented response for now.)",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "userId": {
+                        "type": "string",
+                        "description": "The id of the user to fetch (required)."
+                    }
+                },
+                "required": [
+                    "userId"
+                ]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "title": "user",
+        "description": "Placeholder tool. Create a new user (USER or ADMIN). Not implemented yet.",
+        "function": {
+            "name": "createUser",
+            "description": "Create a new user with the USER or ADMIN role. (Placeholder — returns a not-implemented response for now.)",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "description": "Full name of the user (required)."
+                    },
+                    "email": {
+                        "type": "string",
+                        "description": "Email address of the user (required)."
+                    },
+                    "mobileNumber": {
+                        "type": "string",
+                        "description": "Mobile number of the user (10-digit or 91XXXXXXXXXX).",
+                        "pattern": "^(?:91[0-9]{10}|[0-9]{10})$"
+                    },
+                    "role": {
+                        "type": "string",
+                        "description": "Role to assign to the user.",
+                        "enum": [
+                            "USER",
+                            "ADMIN"
+                        ]
+                    }
+                },
+                "required": [
+                    "name",
+                    "email"
+                ]
+            }
+        }
+    }
+]

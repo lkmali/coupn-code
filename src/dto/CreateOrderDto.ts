@@ -1,0 +1,11 @@
+import { IsNotEmpty, IsObject, IsOptional, IsString } from 'class-validator'
+
+export class CreateOrderDto {
+  @IsString()
+  @IsNotEmpty()
+  productId!: string
+
+  @IsOptional()
+  @IsObject()
+  metadata?: Record<string, unknown>
+}
