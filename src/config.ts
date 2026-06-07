@@ -117,12 +117,16 @@ const awsConfigurationKey = {
   },
 }
 
-// Only force HTTP -> HTTPS upgrades in production, where the app is actually
-// served over TLS. In local/dev the app runs over plain http://localhost, so
-// emitting `upgrade-insecure-requests` makes the browser rewrite requests to
-// https://localhost (which has no TLS) and fail with "Unsafe attempt to load
-// URL https://localhost.../ from frame with URL http://localhost...".
-const isProduction = String(environment.NODE_ENV) === 'production'
+// Only force HTTP -> HTTPS upgrades when the app is ACTUALLY served over TLS.
+// NODE_ENV is the wrong signal: a production build can still be served over
+// plain http:// (e.g. behind no TLS terminator, or on a raw IP:port). In that
+// case emitting `upgrade-insecure-requests` makes the browser rewrite every
+// request to https://<host>:<port> — which has no TLS — and fail with
+// "Unsafe attempt to load URL https://.../ from frame with URL http://..."
+// plus ERR_SSL_PROTOCOL_ERROR on every asset. Gate on an explicit flag that is
+// only true when there is a real HTTPS endpoint (set SERVE_OVER_HTTPS=true once
+// TLS / a reverse proxy is in front of the app).
+const servedOverHttps = String(environment.SERVE_OVER_HTTPS) === 'true'
 
 const helmetConfig = {
   contentSecurityPolicy: {
@@ -140,11 +144,16 @@ const helmetConfig = {
       frameSrc: ["'self'", 'https://js.stripe.com', 'https://hooks.stripe.com'],
       reportUri: '/report-violation',
       connectSrc: ["'self'", 'http://localhost:4000', 'http://localhost:4001', 'http://localhost:4002', 'https://anantkaya-files.s3.ap-south-1.amazonaws.com', 'https://api.stripe.com'],
-      // Spread the upgrade directive only in production so dev (plain HTTP) is
-      // never force-upgraded to a broken https://localhost.
-      ...(isProduction ? { upgradeInsecureRequests: [] } : {}),
+      // Spread the upgrade directive only when actually served over HTTPS, so
+      // plain-HTTP deployments are never force-upgraded to a broken https URL.
+      ...(servedOverHttps ? { upgradeInsecureRequests: [] } : {}),
     },
   },
+  // helmet enables HSTS (Strict-Transport-Security) by DEFAULT. Sending it over
+  // plain HTTP is wrong and, worse, the browser CACHES it for max-age (1 year),
+  // so it keeps force-upgrading http -> https long after the server stops
+  // sending it. Only send HSTS when actually served over TLS.
+  ...(servedOverHttps ? {} : { strictTransportSecurity: false as const }),
   referrerPolicy: {
     policy: 'same-origin',
   },
