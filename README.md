@@ -186,7 +186,7 @@ Provider errors are logged with full detail server-side but surfaced to the clie
 ### Tools available
 
 | Tool | Domain | What it does | Backed by |
-|------|--------|--------------|-----------|
+| ---- | ------ | ------------ | --------- |
 | `list_orders` | Orders | List org orders (admins) or own orders, with optional status filter + paging | [orderTools.ts](src/service/copilot/tools/orderTools.ts) |
 | `get_order_status` | Orders | Status, amount & currency of a single owned order | orderTools.ts |
 | `list_products` | Catalog | List the active product catalog (name, price, currency) | [productTools.ts](src/service/copilot/tools/productTools.ts) |
