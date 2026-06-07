@@ -21,6 +21,7 @@ import Spinner from "@/components/Spinner";
 import Toast from "@/components/Toast";
 import StripeConfigForm from "@/components/payments/StripeConfigForm";
 import ProductsManager from "@/components/payments/ProductsManager";
+import SubscriptionPlansManager from "@/components/payments/SubscriptionPlansManager";
 import type {
   OrganizationConfiguration,
   PhoneNumberInfo,
@@ -423,6 +424,13 @@ export default function ConfigurationPage() {
         description="Catalog of products customers can pay for. Amounts back server-side pricing."
       >
         <ProductsManager />
+      </Section>
+
+      <Section
+        title="Subscription Plans"
+        description="Recurring plans shown on the subscriber page. Each plan maps to a recurring Stripe price (price_…); the name, amount and interval are display details."
+      >
+        <SubscriptionPlansManager />
       </Section>
 
       <Toast

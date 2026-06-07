@@ -69,6 +69,7 @@ export class StripeConfigService {
         ? this.encryption.maskSecret(this.encryption.decryptSecret(stripe.secretKey))
         : undefined,
       webhookSecretConfigured: Boolean(stripe.webhookSecret),
+      subscriptionProducts: stripe.subscriptionProducts ?? [],
       updatedAt: stripe.updatedAt,
     }
   }
@@ -89,11 +90,12 @@ export class StripeConfigService {
         isDelete: false,
       })
       const existing = ((existingDoc as any)?.stripeConfiguration ?? {}) as IStripeConfiguration
+      const defaultCurrency = (dto.defaultCurrency ?? existing.defaultCurrency ?? 'usd').toLowerCase()
 
       const next: IStripeConfiguration = {
         isEnabled: dto.isEnabled ?? existing.isEnabled ?? false,
         publishableKey: dto.publishableKey ?? existing.publishableKey,
-        defaultCurrency: (dto.defaultCurrency ?? existing.defaultCurrency ?? 'usd').toLowerCase(),
+        defaultCurrency,
         accountId: dto.accountId ?? existing.accountId,
         livemode: dto.publishableKey
           ? dto.publishableKey.startsWith('pk_live_')
@@ -104,6 +106,15 @@ export class StripeConfigService {
         webhookSecret: dto.webhookSecret
           ? this.encryption.encryptSecret(dto.webhookSecret)
           : existing.webhookSecret,
+        // The plan list is sent in full when present (add/remove/reorder); omit
+        // to leave the stored list unchanged. Normalize currency to lowercase.
+        subscriptionProducts: dto.subscriptionProducts
+          ? dto.subscriptionProducts.map(p => ({
+              ...p,
+              currency: (p.currency ?? defaultCurrency).toLowerCase(),
+              isActive: p.isActive ?? true,
+            }))
+          : existing.subscriptionProducts,
         updatedAt: TimezoneUtil.nowUTC(),
       }
 
@@ -141,6 +152,7 @@ export class StripeConfigService {
           secretKeyChanged: Boolean(dto.secretKey),
           webhookSecretChanged: Boolean(dto.webhookSecret),
           publishableKeySet: Boolean(next.publishableKey),
+          subscriptionPlanCount: next.subscriptionProducts?.length ?? 0,
         },
       })
 

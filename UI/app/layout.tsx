@@ -13,9 +13,36 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const siteUrl =
+  process.env.NEXT_PUBLIC_SITE_URL ?? "http://140.245.233.90:3000";
+const title = "Admin Console";
+const description = "Organization & user management console";
+
 export const metadata: Metadata = {
-  title: "Admin Console",
-  description: "Organization & user management console",
+  metadataBase: new URL(siteUrl),
+  title,
+  description,
+  openGraph: {
+    type: "website",
+    siteName: title,
+    title,
+    description,
+    url: siteUrl,
+    images: [
+      {
+        url: "/logo.png",
+        width: 752,
+        height: 752,
+        alt: title,
+      },
+    ],
+  },
+  twitter: {
+    card: "summary",
+    title,
+    description,
+    images: ["/logo.png"],
+  },
 };
 
 export default function RootLayout({

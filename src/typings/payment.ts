@@ -85,6 +85,26 @@ export enum AuditAction {
 // ==================== Per-org Stripe configuration ====================
 
 /**
+ * A subscription plan the org chooses to offer. Curated by the admin in the
+ * Stripe configuration and rendered directly on the subscriber page — the
+ * `priceId` must point at a recurring Stripe price in the org's account, which
+ * is what `POST /subscriptions/checkout` charges against. The display fields
+ * (name/amount/interval) are stored here so the page renders without a live
+ * Stripe `prices.list` round-trip.
+ */
+export interface ISubscriptionProduct {
+  priceId: string // Stripe recurring price id (price_…) — charged at checkout
+  name: string
+  description?: string
+  amount?: number | null // smallest currency unit (e.g. cents); null for metered
+  currency?: string // e.g. 'usd', 'inr'
+  interval?: 'day' | 'week' | 'month' | 'year'
+  intervalCount?: number
+  featured?: boolean // highlight on the subscriber page
+  isActive?: boolean // false hides the plan without deleting it; defaults to true
+}
+
+/**
  * Stored inside the organization configuration document. `secretKey` and
  * `webhookSecret` are persisted as `enc:v1:...` envelopes (see EncryptionService.encryptSecret).
  */
@@ -96,6 +116,7 @@ export interface IStripeConfiguration {
   defaultCurrency?: string // e.g. 'usd', 'inr'
   accountId?: string // Stripe account id (for future Stripe Connect support)
   livemode?: boolean
+  subscriptionProducts?: ISubscriptionProduct[] // curated subscriber-page plans
   updatedAt?: Date
 }
 
@@ -109,6 +130,7 @@ export interface IStripeConfigurationView {
   secretKeyMasked?: string
   webhookSecretConfigured: boolean
   secretKeyConfigured: boolean
+  subscriptionProducts?: ISubscriptionProduct[]
   updatedAt?: Date
 }
 

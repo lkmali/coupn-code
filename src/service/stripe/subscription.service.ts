@@ -46,6 +46,84 @@ export class SubscriptionService {
   // ============================ Create side (API) ============================
 
   /**
+   * List the org's available subscription plans for the subscriber page.
+   *
+   * Preferred source is the admin-curated `subscriptionProducts` list in the
+   * org's Stripe configuration — the admin decides exactly which plans (and how
+   * they read) appear. When that list is empty we fall back to reading every
+   * active recurring price live from the org's Stripe account, so orgs that
+   * never curated a list keep working. The client picks one and passes its
+   * `priceId` to `createCheckoutSession`.
+   */
+  async listPlans(orgId: string): Promise<
+    Array<{
+      priceId: string
+      productName: string
+      description?: string
+      amount: number | null
+      currency: string
+      interval?: string
+      intervalCount?: number
+      featured?: boolean
+    }>
+  > {
+    try {
+      const config = await this.stripeConfigService.getEnabledConfigOrThrow(orgId)
+
+      // Admin-curated plans take precedence — render straight from config, no
+      // live Stripe round-trip. Inactive plans are hidden from the page.
+      const curated = (config.subscriptionProducts ?? []).filter(p => p.isActive !== false)
+      if (curated.length > 0) {
+        return curated.map(p => ({
+          priceId: p.priceId,
+          productName: p.name,
+          description: p.description,
+          amount: p.amount ?? null,
+          currency: (p.currency ?? config.defaultCurrency ?? 'usd').toLowerCase(),
+          interval: p.interval,
+          intervalCount: p.intervalCount,
+          featured: p.featured,
+        }))
+      }
+
+      const stripe = await this.stripeClientService.getClient(orgId)
+
+      const prices = await stripe.prices.list({
+        active: true,
+        type: 'recurring',
+        expand: ['data.product'],
+        limit: 100,
+      })
+
+      return prices.data
+        // Drop prices whose product was archived/deleted in Stripe.
+        .filter(price => {
+          const product = price.product as any
+          return product && typeof product === 'object' && product.active !== false
+        })
+        .map(price => {
+          const product = price.product as any
+          return {
+            priceId: price.id,
+            productName: product?.name ?? 'Plan',
+            description: product?.description ?? undefined,
+            amount: price.unit_amount,
+            currency: price.currency,
+            interval: price.recurring?.interval,
+            intervalCount: price.recurring?.interval_count,
+          }
+        })
+    } catch (error: any) {
+      loggerProvider.logger.error('listSubscriptionPlans_Error', {
+        error: error.message,
+        stack: error.stack,
+        orgId,
+      })
+      throw error
+    }
+  }
+
+  /**
    * Create a hosted Checkout Session in `subscription` mode for a recurring
    * price. Stripe creates the Customer and the Subscription; we link them back
    * to our user via `subscription_data.metadata` so the

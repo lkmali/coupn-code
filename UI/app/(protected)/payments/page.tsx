@@ -19,6 +19,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { loadStripe, type Stripe } from "@stripe/stripe-js";
 import { Elements } from "@stripe/react-stripe-js";
 import CheckoutForm from "@/components/payments/CheckoutForm";
+import SubscriptionsPanel from "@/components/payments/SubscriptionsPanel";
 import {
   listProducts,
   createOrder,
@@ -30,7 +31,7 @@ import {
 import type { OrderStatus, Product } from "@/features/payments/types";
 import { getErrorMessage } from "@/lib/api";
 
-type Flow = "elements" | "checkout";
+type Flow = "elements" | "checkout" | "subscription";
 type Phase = "loading" | "not_configured" | "idle" | "paying" | "polling" | "done";
 
 function formatAmount(amount: number, currency: string): string {
@@ -51,6 +52,7 @@ export default function PaymentsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [subscriptionNotice, setSubscriptionNotice] = useState<string | null>(null);
 
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [orderId, setOrderId] = useState<string | null>(null);
@@ -96,13 +98,30 @@ export default function PaymentsPage() {
         setStripePromise(loadStripe(publishableKey));
         setProducts(await listProducts());
 
-        // Handle a return from the hosted Checkout page.
+        // Handle a return from a hosted Stripe page (checkout or subscription).
         const params = new URLSearchParams(window.location.search);
         const checkout = params.get("checkout");
+        const subscription = params.get("subscription");
         const returnedOrderId = params.get("order_id");
-        if (checkout && typeof window !== "undefined") {
+        if ((checkout || subscription) && typeof window !== "undefined") {
           // Clean the query string so a refresh doesn't re-trigger this.
           window.history.replaceState({}, "", window.location.pathname);
+        }
+        // Returned from subscription Checkout — the webhook activates it, so we
+        // just surface a notice and let the panel re-list the subscriptions.
+        if (subscription === "success") {
+          setFlow("subscription");
+          setSubscriptionNotice(
+            "Subscription started 🎉 It may take a moment to appear below while Stripe confirms it."
+          );
+          setPhase("idle");
+          return;
+        }
+        if (subscription === "cancel") {
+          setFlow("subscription");
+          setSubscriptionNotice("Subscription checkout was canceled. You can try again.");
+          setPhase("idle");
+          return;
         }
         if (checkout === "success" && returnedOrderId) {
           setFlow("checkout");
@@ -182,6 +201,10 @@ export default function PaymentsPage() {
       title: "Checkout Flow",
       blurb: "Redirect to Stripe's hosted checkout page.",
     },
+    subscription: {
+      title: "Subscriptions",
+      blurb: "Recurring plans — monthly / yearly billing.",
+    },
   };
 
   return (
@@ -192,7 +215,7 @@ export default function PaymentsPage() {
       </p>
 
       {/* Flow selector */}
-      <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
         {(Object.keys(flowMeta) as Flow[]).map((key) => {
           const active = flow === key;
           return (
@@ -240,7 +263,12 @@ export default function PaymentsPage() {
         </p>
       )}
 
-      {phase === "idle" && (
+      {/* Subscriptions flow — recurring plans, current subscriptions, billing */}
+      {flow === "subscription" && phase !== "loading" && phase !== "not_configured" && (
+        <SubscriptionsPanel initialNotice={subscriptionNotice} />
+      )}
+
+      {flow !== "subscription" && phase === "idle" && (
         <div className="mt-6 space-y-3">
           {products.length === 0 && (
             <p className="text-sm text-zinc-500">No products available yet.</p>
@@ -300,7 +328,7 @@ export default function PaymentsPage() {
         </div>
       )}
 
-      {phase === "done" && (
+      {flow !== "subscription" && phase === "done" && (
         <div className="mt-6 rounded-xl border border-zinc-200 bg-white p-6 text-center">
           {finalStatus === "PAID" ? (
             <p className="text-base font-semibold text-emerald-700">Payment successful 🎉</p>

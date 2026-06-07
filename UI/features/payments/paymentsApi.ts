@@ -18,6 +18,9 @@ import type {
   CreateCheckoutSessionResponse,
   StripeConfigView,
   UpdateStripeConfigPayload,
+  SubscriptionPlan,
+  Subscription,
+  CreateSubscriptionCheckoutResponse,
 } from "./types";
 
 interface ApiEnvelope<T> {
@@ -113,6 +116,58 @@ export async function refundOrder(orderId: string): Promise<{ status: string; re
   const { data } = await api.post<ApiEnvelope<{ status: string; refundId: string }>>(
     "/payments/refund",
     { orderId }
+  );
+  return data.data;
+}
+
+/* ------------------------------ Subscriptions ------------------------------ */
+
+/** GET /subscriptions/plans — the org's active recurring prices (plans). */
+export async function listPlans(): Promise<SubscriptionPlan[]> {
+  const { data } = await api.get<ApiEnvelope<SubscriptionPlan[]>>("/subscriptions/plans");
+  return data.data;
+}
+
+/**
+ * POST /subscriptions/checkout — create a hosted Checkout Session in
+ * `subscription` mode for a recurring price. Returns the Stripe URL to redirect to.
+ */
+export async function createSubscriptionCheckout(
+  priceId: string,
+  trialPeriodDays?: number
+): Promise<CreateSubscriptionCheckoutResponse> {
+  const { data } = await api.post<ApiEnvelope<CreateSubscriptionCheckoutResponse>>(
+    "/subscriptions/checkout",
+    { priceId, trialPeriodDays }
+  );
+  return data.data;
+}
+
+/** GET /subscriptions — the current user's subscriptions (newest first). */
+export async function listSubscriptions(): Promise<Subscription[]> {
+  const { data } = await api.get<ApiEnvelope<Subscription[]>>("/subscriptions");
+  return data.data;
+}
+
+/**
+ * POST /subscriptions/:id/cancel — cancel a subscription. Defaults to
+ * cancel-at-period-end; pass `immediately` to cancel right away.
+ */
+export async function cancelSubscription(
+  stripeSubscriptionId: string,
+  immediately = false
+): Promise<{ stripeSubscriptionId: string; status: string; cancelAtPeriodEnd: boolean }> {
+  const { data } = await api.post<
+    ApiEnvelope<{ stripeSubscriptionId: string; status: string; cancelAtPeriodEnd: boolean }>
+  >(`/subscriptions/${stripeSubscriptionId}/cancel`, { immediately });
+  return data.data;
+}
+
+/** POST /subscriptions/billing-portal — Stripe Customer Portal URL to manage billing. */
+export async function createBillingPortalSession(): Promise<{ url: string }> {
+  const { data } = await api.post<ApiEnvelope<{ url: string }>>(
+    "/subscriptions/billing-portal",
+    {}
   );
   return data.data;
 }

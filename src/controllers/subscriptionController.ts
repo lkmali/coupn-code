@@ -40,6 +40,22 @@ export class SubscriptionController {
     return { success: true, data }
   }
 
+  @Get('/plans')
+  @OpenAPI({
+    summary: 'List the org\'s available subscription plans',
+    tags: ['Subscriptions'],
+    description:
+      'Returns the org\'s active recurring prices (plans) read live from its Stripe account, each with the parent product\'s name/description and the price\'s amount + billing interval. The client renders these and passes the chosen `priceId` to POST /subscriptions/checkout.',
+    responses: {
+      '200': { description: 'Plan list', content: { 'application/json': { example: { success: true, data: [{ priceId: 'price_123', productName: 'Pro', description: 'Pro plan', amount: 1999, currency: 'usd', interval: 'month', intervalCount: 1 }] } } } },
+      '400': { description: 'Stripe not configured' },
+    },
+  })
+  async plans(@CurrentUser() user: UserProfile) {
+    const data = await this.subscriptionService.listPlans(user.orgId)
+    return { success: true, data }
+  }
+
   @Get()
   @OpenAPI({
     summary: 'List the current user\'s subscriptions',
