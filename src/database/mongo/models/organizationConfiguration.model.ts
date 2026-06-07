@@ -11,7 +11,6 @@ const OrganizationConfigurationSchema = new Schema<IOrganizationConfiguration>(
     logoUrl: { type: String },
     metaAttributes: { type: Schema.Types.Mixed },
     welcomeMessage: { type: Schema.Types.Mixed },
-    organizationAddress: { type: Schema.Types.Mixed },
     phoneNumbersId: [{ type: String }],
     phoneNumberInformation: [{ type: Schema.Types.Mixed }],
     exotelConfiguration: { type: Schema.Types.Mixed },

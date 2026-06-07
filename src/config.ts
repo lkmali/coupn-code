@@ -17,7 +17,6 @@ const envConfig = {
   APP_TESTING_OTP: environment.APP_TESTING_OTP,
   APP_TESTING_MOBILE: environment.APP_TESTING_MOBILE,
   TEST_MODE: String(environment.TEST_MODE) === 'true',
-  OPENAI_API_KEY: environment.OPENAI_API_KEY ?? '',
   BACKEND_URL: environment.BACKEND_URL ?? '',
   SERVER_UI_URL: environment.SERVER_UI_URL ?? '',
   PORT: Number(environment.PORT) || 3000,
@@ -52,6 +51,15 @@ const constantConfig = {
 
 const agentsConfig = {
   agentUrl: environment.AGENTS_URL
+}
+
+/**
+ * Dashboard copilot (OpenAI) configuration. The key/model are kept here in
+ * config rather than in the env files — set `apiKey` directly below.
+ */
+const openAIConfig = {
+  apiKey: '',
+  model: 'gpt-4o-mini',
 }
 
 const redisConfig = {
@@ -194,5 +202,6 @@ export {
   awsConfigurationKey,
   contestRequireAttribute,
   helmetConfig,
-  redisConfig
+  redisConfig,
+  openAIConfig
 }

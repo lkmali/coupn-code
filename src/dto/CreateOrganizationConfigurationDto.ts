@@ -5,9 +5,6 @@ import {
   IsOptional,
   ValidateNested,
   IsArray,
-  IsNumber,
-  Min,
-  IsUrl,
   IsEnum,
   IsBoolean,
 } from 'class-validator'
@@ -356,65 +353,7 @@ export class PreviewTemplateDto {
   language?: string
 }
 
-/**
- * Organization address DTO
- */
-export class OrganizationAddressDto {
-  @IsString()
-  @IsNotEmpty({ message: 'Address is required' })
-  address!: string
 
-  @IsString()
-  @IsNotEmpty({ message: 'Map link is required' })
-  @IsUrl({}, { message: 'Map link must be a valid URL' })
-  mapLink!: string
-}
-
-/**
- * Appointment reminder schedule configuration.
- * Allows configuring multiple reminders at different times before an appointment,
- * each with a max send count.
- *
- * Example:
- *   [
- *     { minutesBefore: 1440, isEnabled: true, maxCount: 1 },  // 24hr before, send once
- *     { minutesBefore: 45, isEnabled: true, maxCount: 2 },    // 45min before, send up to 2 times
- *     { minutesBefore: 30, isEnabled: true, maxCount: 1 },    // 30min before, send once
- *   ]
- */
-/**
- * Reminder schedule item for organization configuration.
- * Each item specifies WHEN and HOW to send a reminder.
- *
- * @example
- * {
- *   "type": "WHATSAPP",
- *   "offsetMinutes": 30,
- *   "direction": "BEFORE",
- *   "isEnabled": true
- * }
- */
-export class ReminderScheduleItemDto {
-  @IsString()
-  @IsNotEmpty({ message: 'type is required (WHATSAPP, EMAIL, or CALL)' })
-  type!: string // 'WHATSAPP' | 'EMAIL' | 'CALL'
-
-  @IsNumber()
-  @Min(1, { message: 'offsetMinutes must be at least 1' })
-  @IsNotEmpty({ message: 'offsetMinutes is required' })
-  offsetMinutes!: number
-
-  @IsString()
-  @IsNotEmpty()
-  direction!: string // 'BEFORE' | 'AFTER'
-
-  @IsBoolean({ message: 'isEnabled must be a boolean' })
-  isEnabled!: boolean
-}
-
-/**
- * Gemini AI configuration
- */
 export class GeminiAIConfigurationDto {
   @IsOptional()
   @CleanOptional()
@@ -470,12 +409,7 @@ export class CreateOrganizationConfigurationDto {
   @Type(() => WhatsAppTemplateItemDto)
   public whatsappTemplate?: WhatsAppTemplateItemDto[]
 
-  @IsOptional()
-  @CleanOptional()
-  @ValidateNested()
-  @Type(() => OrganizationAddressDto)
-  public organizationAddress?: OrganizationAddressDto
-
+ 
   @IsOptional()
   @CleanOptional()
   @ValidateNested()

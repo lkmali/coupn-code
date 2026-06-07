@@ -57,6 +57,17 @@ const NAV: NavItem[] = [
     ),
   },
   {
+    href: "/copilot",
+    label: "Copilot",
+    icon: (
+      <path
+        fillRule="evenodd"
+        d="M10 1.5a1 1 0 0 1 1 1V3h2.5A2.5 2.5 0 0 1 16 5.5v6A2.5 2.5 0 0 1 13.5 14h-2.69l-3.2 2.94A.75.75 0 0 1 6.5 16.4V14H6.5A2.5 2.5 0 0 1 4 11.5v-6A2.5 2.5 0 0 1 6.5 3H9v-.5a1 1 0 0 1 1-1ZM7.75 7a1 1 0 1 0 0 2 1 1 0 0 0 0-2Zm4.5 0a1 1 0 1 0 0 2 1 1 0 0 0 0-2Z"
+        clipRule="evenodd"
+      />
+    ),
+  },
+  {
     href: "/configuration",
     label: "Configuration",
     adminOnly: true,

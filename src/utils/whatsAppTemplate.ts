@@ -248,7 +248,7 @@ export interface BuildTemplateVariablesInput {
 }
 
 export function buildTemplateVariables(input: BuildTemplateVariablesInput): Record<string, string | number> {
-  const { userInfo, appointment, orgAddress, status, insuranceProvider, formattedAppointmentDate, formattedAppointmentTime, extras } = input
+  const { userInfo, appointment, status, insuranceProvider, formattedAppointmentDate, formattedAppointmentTime, extras } = input
 
   const leadId =
     (appointment?.leadId !== undefined && appointment.leadId !== null && String(appointment.leadId)) ||
@@ -279,7 +279,6 @@ export function buildTemplateVariables(input: BuildTemplateVariablesInput): Reco
     appointmentTime,
     leadId,
     insuranceProvider: insuranceProvider ?? userInfo?.others ?? '',
-    organizationAddress: orgAddress ?? '',
     name: userInfo?.username ?? '',
     meetingLink: appointment?.meetingLink ?? '',
   }

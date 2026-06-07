@@ -16,3 +16,5 @@ export * from './product.service'
 export * from './order.service'
 // Payments — Stripe (per-org / multi-tenant). All Stripe code lives in ./stripe
 export * from './stripe'
+// Copilot — dashboard chat assistant (OpenAI tool-calling). Lives in ./copilot
+export * from './copilot'

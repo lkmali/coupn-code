@@ -148,8 +148,7 @@ export interface IMongoOrganizationConfiguration extends Document {
   logoUrl?: string
   metaAttributes?: Record<string, any>
   welcomeMessage?: Record<string, any>
-  organizationAddress?: Record<string, any>
-  
+
   phoneNumbersId?: string[]
   phoneNumberInformation?: IPhoneNumberInfo[]
  

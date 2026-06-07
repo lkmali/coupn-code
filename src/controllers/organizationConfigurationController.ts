@@ -9,6 +9,7 @@ import {
   GetS3UploadUrlDto
 } from '../dto'
 import { S3Service } from '../service/aws/s3.service'
+import { maskConfigSecrets } from '../utils/configSecrets'
 
 /**
  * Organization Configuration Controller
@@ -61,10 +62,6 @@ export class OrganizationConfigurationController {
             phoneNumberInformation: [
               { phoneNumber: '919876543210', location: 'Reception', isEnabled: true },
             ],
-            organizationAddress: {
-              address: '123 Healthcare Avenue, Mumbai, Maharashtra 400001',
-              mapLink: 'https://maps.google.com/?q=19.0760,72.8777',
-            },
             isDeleteAllowed: false,
             reminderConfig: {
               autoReminderEnabled: true,
@@ -156,10 +153,6 @@ export class OrganizationConfigurationController {
               whatsappTemplate: [
                 { id: 'tpl_xyz789', languageCode: 'en', type: 'FOLLOW_UP', messageBody: 'Hi {{1}}, this is a follow-up message.', isEnabled: true },
               ],
-              organizationAddress: {
-                address: '123 Healthcare Avenue, Mumbai',
-                mapLink: 'https://maps.google.com/?q=19.0760,72.8777',
-              },
               reminderConfig: {
                 autoReminderEnabled: true,
                 reminderTypes: ['WHATSAPP'],
@@ -191,11 +184,14 @@ export class OrganizationConfigurationController {
       }))
     }
 
-    return {
+    // Mask secret fields (OpenAI/Gemini/Meta/Exotel credentials) so raw values
+    // never reach the browser. The admin re-enters a secret only to change it.
+    const masked = maskConfigSecrets({
       ...response,
       appointmentInformation,
       whatsappTemplate,
-    }
+    })
+    return masked
   }
 
   /**

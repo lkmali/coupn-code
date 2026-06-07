@@ -69,11 +69,6 @@ export interface PhoneNumberInfo {
   isEnabled?: boolean;
 }
 
-export interface OrganizationAddress {
-  address: string;
-  mapLink: string;
-}
-
 export interface WhatsappConfig {
   token?: string;
   phoneNumberId?: string;
@@ -88,12 +83,38 @@ export interface MetaAttributes {
   whatsapp?: WhatsappConfig;
 }
 
+export interface GeminiAIConfiguration {
+  apiKey?: string;
+  baseUrl?: string;
+}
+
+/** Per-organization Exotel softphone configuration */
+export interface ExotelConfiguration {
+  customerId?: string;
+  customerSecret?: string;
+  appId?: string;
+  appSecret?: string;
+  accountSid?: string;
+  virtualNumber?: string;
+  domain?: string;
+  integrationsBaseUrl?: string;
+  apiKey?: string;
+  apiToken?: string;
+  subdomain?: string;
+  webhookToken?: string;
+  isEnabled?: boolean;
+}
+
+export type Language = "HINDI" | "GUJARATI" | "ENGLISH";
+
 /** Organization configuration (subset used by the admin UI) */
 export interface OrganizationConfiguration {
   metaAttributes?: MetaAttributes;
   phoneNumberInformation?: PhoneNumberInfo[];
-  organizationAddress?: OrganizationAddress;
   openaiApiKey?: string;
+  geminiAIConfiguration?: GeminiAIConfiguration;
+  exotelConfiguration?: ExotelConfiguration;
+  defaultLanguage?: Language;
   isDeleteAllowed?: boolean;
 }
 

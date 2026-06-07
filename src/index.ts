@@ -25,6 +25,7 @@ const logger = LoggerProvider.Instance.logger
 setLogger(logger as any)
 // Bridge Redis service to @anantai/common for counter model
 import { RedisService } from './service/redis.service'
+import { OrganizationConfigurationService } from './service/organizationConfiguration.service'
 import {mongoConnection} from './database/connection/mongoConnection'
 setRedisService(RedisService.Instance as any)
 /**
@@ -103,6 +104,9 @@ async function loadServer() {
 
   await MigrationObserver.getInstance().start()
 
+  // Warm the in-memory org-configuration cache (decrypted, real values) so the
+  // first request per org doesn't pay a DB/decrypt round-trip.
+  await OrganizationConfigurationService.Instance.warmupConfigCache()
 
   app.use(helmet(helmetConfig as any))
   app.use(

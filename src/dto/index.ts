@@ -27,3 +27,5 @@ export * from './RefundPaymentDto'
 export * from './UpdateStripeConfigDto'
 export * from './CreateProductDto'
 export * from './UpdateProductDto'
+// Copilot (dashboard chat)
+export * from './ChatDto'

@@ -18,6 +18,11 @@ import { EXOTEL_WEBHOOK_TOKEN_REDIS_KEY } from './exotel.service'
 import { TimezoneUtil } from '../utils/timezone.util'
 import { omit } from 'lodash'
 import { randomBytes } from 'crypto'
+import {
+  encryptConfigSecrets,
+  decryptConfigSecrets,
+  preserveUnchangedSecrets,
+} from '../utils/configSecrets'
 // import { WhatsAppChatService } from './meta/whatsAppChat'
 
 const loggerProvider = LoggerProvider.Instance
@@ -30,6 +35,14 @@ export class OrganizationConfigurationService {
 
   private readonly CACHE_TTL = 3600 // 1 hour in seconds
   private readonly CACHE_KEY_PREFIX = 'org_config:'
+
+  /**
+   * Process-local L1 cache holding the *decrypted, real* configuration per org.
+   * Warmed on startup ({@link warmupConfigCache}) and refreshed on every save so
+   * internal callers (copilot, Meta/WhatsApp senders) read real secret values
+   * without a DB/Redis round-trip. Client responses are masked separately.
+   */
+  private readonly memoryConfigCache = new Map<string, IOrganizationConfiguration>()
 
   constructor() {
     this.organizationConfigurationRepository = new MongoOrganizationConfigurationRepository()
@@ -127,13 +140,6 @@ export class OrganizationConfigurationService {
         )
       }
 
-      // organizationAddress
-      if (data.organizationAddress) {
-        configData.organizationAddress = data.organizationAddress
-      }
-
-
-
       // Cache each phoneNumberId -> orgId mapping in Redis
       if (Array.isArray(configData.phoneNumbersId) && configData.phoneNumbersId.length > 0) {
         // Invalidate old phone number caches if existing config had different numbers
@@ -187,8 +193,14 @@ export class OrganizationConfigurationService {
         }
       }
 
+      // Secret handling: keep previously stored secrets when the client sent a
+      // blank/masked value (no re-entry), then encrypt at-rest secret fields
+      // before persisting. Done last so it covers every branch above.
+      preserveUnchangedSecrets(configData, existingConfig as object | null)
+      const encryptedConfigData = encryptConfigSecrets(configData)
+
       if (existingConfig) {
-        const { orgId: _omitOrgId, createdAt: _omitCreatedAt, createdBy: _omitCreatedBy, ...updateBody } = configData
+        const { orgId: _omitOrgId, createdAt: _omitCreatedAt, createdBy: _omitCreatedBy, ...updateBody } = encryptedConfigData
         await this.organizationConfigurationRepository.updateOrganizationConfiguration(
           { _id: toObjectId((existingConfig as any)._id) },
           {
@@ -199,17 +211,18 @@ export class OrganizationConfigurationService {
       } else {
         await this.organizationConfigurationRepository.saveOrganizationConfiguration(
           {
-            ...configData,
+            ...encryptedConfigData,
             adminUserId: userProfile.userId,
-            testimonialMessage: configData?.testimonialMessage ?? {},
-            welcomeMessage: configData?.welcomeMessage ?? {},
-            whatsappTemplate: configData?.whatsappTemplate ?? {},
+            testimonialMessage: encryptedConfigData?.testimonialMessage ?? {},
+            welcomeMessage: encryptedConfigData?.welcomeMessage ?? {},
+            whatsappTemplate: encryptedConfigData?.whatsappTemplate ?? {},
           },
           {},
         )
       }
 
-      // Invalidate Redis cache after creating/updating configuration
+      // Invalidate Redis cache and refresh the in-memory L1 with the real
+      // (decrypted) config so internal callers see the new values immediately.
       try {
         const cacheKey = this.getOrganizationCacheKey(userProfile.orgId)
         await this.redisService.del(cacheKey)
@@ -217,6 +230,10 @@ export class OrganizationConfigurationService {
       } catch (redisError) {
         loggerProvider.logger.warn('Redis delete error, cache not invalidated:', redisError)
       }
+      // configData may now hold preserved (still-encrypted) secrets, so decrypt
+      // before caching to honour "memory stores real data".
+      const realConfig = decryptConfigSecrets(configData as IOrganizationConfiguration)
+      if (realConfig) this.memoryConfigCache.set(String(userProfile.orgId), realConfig)
 
       return { message: 'Organization configuration saved successfully' }
     } catch (error: any) {
@@ -235,11 +252,17 @@ export class OrganizationConfigurationService {
    */
   async getOrganizationConfigurationFromDb(orgId: string | number): Promise<IOrganizationConfiguration> {
     try {
+      // L1: process-local cache already holds the decrypted, real config.
+      const cached = this.memoryConfigCache.get(String(orgId))
+      if (cached) return cached
+
       const config = await this.organizationConfigurationRepository.getOrganizationConfiguration({
         orgId: toObjectId(orgId),
         isDelete: false,
       })
-      return config as unknown as IOrganizationConfiguration
+      const real = decryptConfigSecrets(config as unknown as IOrganizationConfiguration)
+      if (real) this.memoryConfigCache.set(String(orgId), real)
+      return real as IOrganizationConfiguration
     } catch (error: any) {
       loggerProvider.logger.error('getOrganizationConfiguration_Error', {
         error: error.message,
@@ -256,14 +279,20 @@ export class OrganizationConfigurationService {
    */
   async getOrganizationConfiguration(orgId: string): Promise<IOrganizationConfiguration> {
     try {
+      // L1: process-local cache already holds the decrypted, real config.
+      const memHit = this.memoryConfigCache.get(String(orgId))
+      if (memHit) return memHit
+
       const cacheKey = this.getOrganizationCacheKey(orgId)
 
-      // Try to get from Redis cache first
+      // L2: Redis stores the doc with secrets still encrypted-at-rest.
       try {
         const cachedData = await this.redisService.get(cacheKey)
         if (cachedData) {
           loggerProvider.logger.info(`Organization configuration found in cache for orgId: ${orgId}`)
-          return cachedData
+          const real = decryptConfigSecrets(cachedData as IOrganizationConfiguration)!
+          this.memoryConfigCache.set(String(orgId), real)
+          return real
         }
       } catch (redisError) {
         loggerProvider.logger.warn('Redis get error, fetching from database:', redisError)
@@ -280,7 +309,7 @@ export class OrganizationConfigurationService {
         throw badRequest('Organization configuration not found')
       }
 
-      // Save to Redis cache for future requests
+      // Save to Redis cache for future requests (encrypted-at-rest form)
       try {
         await this.redisService.set(cacheKey, JSON.stringify(config), this.CACHE_TTL)
         loggerProvider.logger.info(`Organization configuration cached for orgId: ${orgId}`)
@@ -288,7 +317,9 @@ export class OrganizationConfigurationService {
         loggerProvider.logger.warn('Redis set error, data not cached:', redisError)
       }
 
-      return config as any
+      const real = decryptConfigSecrets(config as unknown as IOrganizationConfiguration)!
+      this.memoryConfigCache.set(String(orgId), real)
+      return real as any
     } catch (error: any) {
       loggerProvider.logger.error('getOrganizationConfiguration_Error', {
         error: error.message,
@@ -338,6 +369,8 @@ export class OrganizationConfigurationService {
       } catch (redisError) {
         loggerProvider.logger.warn('Redis delete error, cache not invalidated:', redisError)
       }
+      // Drop the L1 entry so the next read repopulates with the merged config.
+      this.memoryConfigCache.delete(String(orgId))
 
       return merged
     } catch (error: any) {
@@ -411,6 +444,33 @@ export class OrganizationConfigurationService {
 
 
 
+
+  /**
+   * Preload every organization's configuration into the in-memory L1 cache,
+   * decrypting at-rest secrets so internal callers read real values without a
+   * round-trip. Safe to call on startup; failures are logged, never thrown, so
+   * a cache warm-up problem can't take the server down.
+   */
+  async warmupConfigCache(): Promise<void> {
+    try {
+      const configs = await this.organizationConfigurationRepository.getOrganizationConfigurations({
+        isDelete: false,
+      })
+      let loaded = 0
+      for (const config of configs) {
+        const orgId = (config as any)?.orgId
+        if (!orgId) continue
+        const real = decryptConfigSecrets(config as unknown as IOrganizationConfiguration)
+        if (real) {
+          this.memoryConfigCache.set(String(orgId), real)
+          loaded++
+        }
+      }
+      loggerProvider.logger.info(`Organization configuration cache warmed for ${loaded} org(s)`)
+    } catch (error: any) {
+      loggerProvider.logger.error('warmupConfigCache_Error', { error: error.message, stack: error.stack })
+    }
+  }
 
   /**
    * Get singleton instance

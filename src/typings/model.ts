@@ -243,12 +243,6 @@ export interface IWhatsAppTemplate {
 
 
 
-export interface IOrganizationAddress {
-  address: string
-  mapLink: string
-}
-
-
 
 export interface IOrganizationConfiguration {
   configId: string
@@ -259,8 +253,8 @@ export interface IOrganizationConfiguration {
   defaultLanguage:string
   metaAttributes: IMetaAttributes
   whatsappTemplate?: Record<string, IWhatsAppTemplate>
-  organizationAddress?: IOrganizationAddress
   stripeConfiguration?: import('./payment').IStripeConfiguration
+  openaiApiKey?: string
   isDeleteAllowed: boolean
   isActive?: boolean
   isDelete?: boolean
