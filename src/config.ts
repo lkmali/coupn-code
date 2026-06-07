@@ -146,9 +146,13 @@ const helmetConfig = {
       frameSrc: ["'self'", 'https://js.stripe.com', 'https://hooks.stripe.com'],
       reportUri: '/report-violation',
       connectSrc: ["'self'", 'http://localhost:4000', 'http://localhost:4001', 'http://localhost:4002', 'http://140.245.233.90:3000', 'https://api.stripe.com'],
-      // Spread the upgrade directive only when actually served over HTTPS, so
-      // plain-HTTP deployments are never force-upgraded to a broken https URL.
-      ...(servedOverHttps ? { upgradeInsecureRequests: [] } : {}),
+      // helmet's CSP runs with useDefaults:true, and `upgrade-insecure-requests`
+      // is one of those built-in defaults — so simply *not* adding it here is NOT
+      // enough; helmet injects it anyway. To actually DROP a default directive you
+      // must set it to `null`. Enable it ([]) only when truly served over HTTPS;
+      // otherwise force it off so plain-HTTP deploys aren't upgraded to a broken
+      // https URL (ERR_SSL_PROTOCOL_ERROR on every asset).
+      upgradeInsecureRequests: servedOverHttps ? [] : null,
     },
   },
   // helmet enables HSTS (Strict-Transport-Security) by DEFAULT. Sending it over

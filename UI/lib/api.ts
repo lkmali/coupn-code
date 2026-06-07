@@ -16,6 +16,8 @@ import axios, { AxiosError, AxiosHeaders } from "axios";
 export const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "/api";
 
+ console.log("API_BASE_URL =", API_BASE_URL);
+
 const TOKEN_KEY = "app.token";
 const USER_KEY = "app.user";
 const ROLES_KEY = "app.roles";
