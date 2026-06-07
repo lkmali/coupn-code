@@ -21,9 +21,9 @@ import fs from 'fs'
 const app = express()
 app.set('etag', false)
 const logger = LoggerProvider.Instance.logger
-// Bridge Winston logger to the common package so repositories use it
+// Bridge Winston logger to @anantai/common so repositories use it
 setLogger(logger as any)
-// Bridge Redis service to the common package for counter model
+// Bridge Redis service to @anantai/common for counter model
 import { RedisService } from './service/redis.service'
 import {mongoConnection} from './database/connection/mongoConnection'
 setRedisService(RedisService.Instance as any)
@@ -342,9 +342,57 @@ async function loadServer() {
     } as any),
   )
   // Health check endpoint
-  app.get('/', (_req, res) => {
+  app.get('/health', (_req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() })
   })
+
+  // Serve the Next.js admin UI (static export) from the SAME origin as the API.
+  // `next build` writes the site to UI/out; from dist/src that is ../../UI/out.
+  // Because everything lives on one host:port, the UI's "/api/*" calls hit this
+  // server directly — no CORS, no cross-port routing.
+  const uiDir = path.join(__dirname, '../../UI/out')
+  if (fs.existsSync(uiDir)) {
+    // `extensions: ['html']` resolves "/users" -> "users.html", "/login" -> "login.html".
+    // CSP violation reports are POSTed here (see helmetConfig.reportUri). Accept and
+    // discard them with 204 so the browser doesn't log a 404 for every report.
+    app.post('/report-violation', (_req, res) => res.sendStatus(204))
+
+    app.use(express.static(uiDir, { extensions: ['html'], index: 'index.html' }))
+
+    // SPA fallback: any GET that isn't an API/docs/health route and didn't match
+    // a static file falls back to the UI shell so client-side routing works on
+    // hard refresh / deep links.
+    //
+    // Next's static export writes one HTML file per route (e.g. "configuration.html"),
+    // NOT "configuration/index.html". express.static resolves "/configuration" via
+    // `extensions: ['html']`, but a trailing slash ("/configuration/") is treated as a
+    // directory request and misses, so we must resolve the route-specific file here
+    // before defaulting to index.html — otherwise a hard refresh on "/configuration/"
+    // would serve the Home page bundle while the URL stays /configuration.
+    app.get(/^\/(?!api\/|docs\b|health\b|report-violation\b).*/, (req, res, next) => {
+      if (req.method !== 'GET') return next()
+
+      // Normalise the requested path and map it to a candidate exported HTML file.
+      const cleanPath = req.path.replace(/\/+$/, '') // strip trailing slash(es)
+      if (cleanPath && cleanPath !== '/') {
+        const candidates = [
+          path.join(uiDir, `${cleanPath}.html`), // e.g. /configuration -> configuration.html
+          path.join(uiDir, cleanPath, 'index.html'), // e.g. /configuration/ -> configuration/index.html
+        ]
+        for (const file of candidates) {
+          // Guard against path traversal escaping the UI directory.
+          if (file.startsWith(uiDir) && fs.existsSync(file)) {
+            return res.sendFile(file)
+          }
+        }
+      }
+
+      res.sendFile(path.join(uiDir, 'index.html'))
+    })
+  } else {
+    logger.warn(`UI build not found at ${uiDir}. Run "npm run build:ui" to generate it.`)
+  }
+
 
   app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
     res.status(err.status || 500).json({ err: err.message ?? 'Internal Server Error' })

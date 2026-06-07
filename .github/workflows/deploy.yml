@@ -3,7 +3,7 @@ name: Deploy UI to S3
 on:
   push:
     branches:
-      - development
+      - development1
       - staging
       - production
 
