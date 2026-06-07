@@ -128,6 +128,8 @@ const awsConfigurationKey = {
 // TLS / a reverse proxy is in front of the app).
 const servedOverHttps = String(environment.SERVE_OVER_HTTPS) === 'true'
 
+console.log("SERVE_OVER_HTTPS =", environment.SERVE_OVER_HTTPS,servedOverHttps);
+
 const helmetConfig = {
   contentSecurityPolicy: {
     directives: {
