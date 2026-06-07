@@ -16,7 +16,7 @@ export class OpenAIService {
   private clients = new Map<string, OpenAI>()
 
   /** Default chat model; configured in `openAIConfig`. */
-  readonly model = openAIConfig.model || 'gpt-4o-mini'
+  readonly model = openAIConfig.model || 'gpt-4.1-nano'
 
   /**
    * Resolve a client for the given key, falling back to the env-level key.
@@ -44,11 +44,15 @@ export class OpenAIService {
     try {
       return await this.getClient(apiKey).chat.completions.create(params)
     } catch (error: any) {
+      // Keep the full provider detail (status, model, project id, etc.) in the
+      // logs, but never surface it to the client — those messages leak account
+      // internals. Callers get a generic, safe message instead.
       loggerProvider.logger.error('openai_chat_completion_error', {
+        status: error?.status,
         error: error?.message,
         stack: error?.stack,
       })
-      throw error
+      throw new Error('Something went wrong. Please try again later.')
     }
   }
 

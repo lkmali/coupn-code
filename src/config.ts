@@ -59,7 +59,7 @@ const agentsConfig = {
  */
 const openAIConfig = {
   apiKey: '',
-  model: 'gpt-4o-mini',
+  model: 'gpt-4.1-nano',
 }
 
 const redisConfig = {
