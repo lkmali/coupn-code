@@ -160,6 +160,7 @@ const helmetConfig = {
     policy: 'same-origin',
   },
 }
+console.log("HELMET CONFIG", helmetConfig);
 
 
 const contestRequireAttribute = {
