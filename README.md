@@ -16,9 +16,10 @@ A multi-tenant backend + admin dashboard for clinics/organizations. It bundles *
 2. [Architecture](#architecture)
 3. [Login & User Configuration](#login--user-configuration)
 4. [Stripe Payments](#stripe-payments) — how to register on Stripe & what we built
-5. [Data Models](#data-models)
-6. [Frontend (Admin UI)](#frontend-admin-ui)
-7. [Environment Variables](#environment-variables)
+5. [Copilot (AI Assistant)](#copilot-ai-assistant)
+6. [Data Models](#data-models)
+7. [Frontend (Admin UI)](#frontend-admin-ui)
+8. [Environment Variables](#environment-variables)
 
 ---
 
@@ -157,6 +158,47 @@ Endpoint: `POST /api/webhook/stripe/:orgId` (`STRIPE_WEBHOOK` strategy). Handler
 | `invoice.paid` / `invoice.payment_failed` | Record recurring charge result |
 | `account.updated` | Sync connected-account capabilities |
 | `payout.paid` / `payout.failed` | Record payout status / failure reason |
+
+---
+
+## Copilot (AI Assistant)
+
+An in-dashboard chat assistant that answers natural-language questions about the organization's **orders, product catalog and Stripe billing** by calling read-only, org-scoped tools through an OpenAI tool-calling loop. Open it at **`/copilot`** in the admin UI.
+
+> **Why it's safe**: every tool runs as the authenticated user and delegates to the same services as the REST API, so the same org/owner scoping applies — the copilot can never read another tenant's data, and **no mutating tools** (no charges, refunds or cancellations) are exposed. Service code lives in [src/service/copilot/](src/service/copilot/).
+
+### How it works
+
+1. The UI posts the running transcript to `POST /api/copilot/chat` (JWT-authenticated).
+2. [CopilotService](src/service/copilot/copilot.service.ts) seeds a system prompt, then runs an OpenAI **tool-calling loop** (`tool_choice: 'auto'`) for up to **5 rounds** (`MAX_TOOL_ROUNDS`) so a misbehaving model can't loop forever.
+3. Each tool the model requests is dispatched via [runTool](src/service/copilot/tools/index.ts) and resolved against live data; tool errors are returned as `{ error }` so the model can recover instead of failing the whole request.
+4. The final assistant reply (Markdown) and the list of `toolsUsed` are returned to the UI.
+
+### Per-org OpenAI config
+
+Each organization brings its **own OpenAI key and model**, saved under **Configuration → AI Keys** and stored encrypted in `OrganizationConfiguration` (`openaiApiKey`, `openaiModel`). Resolution order:
+
+- **API key**: per-org key → falls back to the env-level `OPENAI_API_KEY`. [OpenAIService](src/service/copilot/openai.service.ts) caches one client per key and fails loudly if none is configured.
+- **Model**: per-org `openaiModel` → falls back to the global default (`openAIConfig.model`, default `gpt-4.1-nano`).
+
+Provider errors are logged with full detail server-side but surfaced to the client as a generic message, so account internals never leak.
+
+### Tools available
+
+| Tool | Domain | What it does | Backed by |
+|------|--------|--------------|-----------|
+| `list_orders` | Orders | List org orders (admins) or own orders, with optional status filter + paging | [orderTools.ts](src/service/copilot/tools/orderTools.ts) |
+| `get_order_status` | Orders | Status, amount & currency of a single owned order | orderTools.ts |
+| `list_products` | Catalog | List the active product catalog (name, price, currency) | [productTools.ts](src/service/copilot/tools/productTools.ts) |
+| `get_product` | Catalog | Get a single active product by id | productTools.ts |
+| `list_subscription_plans` | Billing | List the org's subscription plans (price, currency, interval) | [stripeTools.ts](src/service/copilot/tools/stripeTools.ts) |
+| `list_my_subscriptions` | Billing | List the current user's subscriptions and their status | stripeTools.ts |
+
+> **Adding a capability**: drop a new tool under [src/service/copilot/tools/](src/service/copilot/tools/) and register it in [tools/index.ts](src/service/copilot/tools/index.ts) — the orchestrator advertises it to the model automatically. Monetary amounts from tools are in the smallest currency unit (e.g. cents); the system prompt instructs the model to convert them for display.
+
+### Frontend
+
+The chat lives at [UI/app/(protected)/copilot/page.tsx](UI/app/\(protected\)/copilot/page.tsx) with [ChatWindow](UI/components/copilot/ChatWindow.tsx) / [Message](UI/components/copilot/Message.tsx) components; API calls go through [UI/features/copilot/copilotApi.ts](UI/features/copilot/copilotApi.ts).
 
 ---
 

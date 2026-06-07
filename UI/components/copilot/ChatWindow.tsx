@@ -20,6 +20,27 @@ const GREETING: ChatMessage = {
     "Hi! I'm your dashboard copilot. Ask me about your orders, product catalog or billing — for example, “How many paid orders do I have?” or “What subscription plans do we offer?”",
 };
 
+/** Predefined prompts, grouped by the tool/integration that answers them. */
+const PROMPT_GROUPS = [
+  {
+    tool: "MongoDB",
+    prompts: [
+      "Show my applications",
+      "Show my latest order",
+      "What is my highest order",
+      "How many orders do I have",
+    ],
+  },
+  {
+    tool: "Stripe",
+    prompts: [
+      "Show my active plan",
+      "Show my invoices",
+      "When does my subscription expire",
+    ],
+  },
+];
+
 export default function ChatWindow() {
   const [messages, setMessages] = useState<ChatMessage[]>([GREETING]);
   const [sending, setSending] = useState(false);
@@ -64,6 +85,29 @@ export default function ChatWindow() {
             </div>
           </div>
         )}
+      </div>
+      {/* Predefined prompt chips, grouped by tool — always available as shortcuts. */}
+      <div className="space-y-2 px-4 pb-1 pt-2">
+        {PROMPT_GROUPS.map((group) => (
+          <div key={group.tool} className="space-y-1.5">
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-400">
+              {group.tool}
+            </span>
+            <div className="flex flex-wrap gap-2">
+              {group.prompts.map((prompt) => (
+                <button
+                  key={prompt}
+                  type="button"
+                  onClick={() => handleSend(prompt)}
+                  disabled={sending}
+                  className="rounded-full border border-zinc-300 bg-white px-3 py-1.5 text-xs text-zinc-700 transition-colors hover:border-indigo-500 hover:bg-indigo-50 hover:text-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {prompt}
+                </button>
+              ))}
+            </div>
+          </div>
+        ))}
       </div>
       <ChatInput onSend={handleSend} disabled={sending} />
     </div>
