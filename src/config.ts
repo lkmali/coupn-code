@@ -7,12 +7,12 @@ const environment = load({
 })
 const envConfig = {
   ALLOWED_ORIGINS: environment.ALLOWED_ORIGINS ? environment.ALLOWED_ORIGINS.split(',') : ['*'],
-  JWT_AUDIENCE: environment.JWT_AUDIENCE ?? 'annantai',
-  JWT_ISSUER: environment.JWT_ISSUER ?? 'annantai',
+  JWT_AUDIENCE: environment.JWT_AUDIENCE ?? 'intgration-demo',
+  JWT_ISSUER: environment.JWT_ISSUER ?? 'intgration-demo',
   PASSWORD_ROUNDS: Number(environment.PASSWORD_ROUNDS ?? 10),
   JWT_ALGO: (environment.JWT_ALGO ?? 'HS256') as Algorithm,
   JWT_EXPIRES_IN: Number(environment.JWT_EXPIRES_IN ?? 3600) ?? '1h',
-  NETWORK_WEBHOOK_SECRET: environment.NETWORK_WEBHOOK_SECRET ?? 'annantai',
+  NETWORK_WEBHOOK_SECRET: environment.NETWORK_WEBHOOK_SECRET ?? 'intgration-demo',
   WEBSITE_URL: environment.WEBSITE_URL ?? 'http://localhost:3000',
   APP_TESTING_OTP: environment.APP_TESTING_OTP,
   APP_TESTING_MOBILE: environment.APP_TESTING_MOBILE,
@@ -68,7 +68,7 @@ const redisConfig = {
 
 
 const configMongoDb = {
-  uri: environment.MONGO_URI || 'mongodb://localhost:27017/annantai',
+  uri: environment.MONGO_URI || 'mongodb://localhost:27017/intgration-demo',
   options: {
     maxPoolSize: 10,
     minPoolSize: 2,
