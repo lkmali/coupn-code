@@ -103,27 +103,44 @@ jobs:
 
           echo "🚀 Deploying UI/out to S3 bucket: $BUCKET"
 
-          # Two-pass upload:
-          #   1) Hashed, immutable assets (_next/static/*) -> cache forever.
-          #   2) Everything else (HTML, etc.) -> never cache, so new deploys
-          #      are picked up immediately once CloudFront is invalidated.
+          # Three-pass upload for a Next.js static export (UI/out):
+          #   1) Hashed, immutable assets (_next/static/*)         -> cache forever.
+          #   2) Other long-lived assets (images, favicon, _next/  -> short cache.
+          #      data, etc.)
+          #   3) Mutable entrypoints: HTML pages AND the app-router
+          #      RSC navigation payloads (*.txt: index.txt,
+          #      __next._*.txt, __next.*__PAGE__.txt)             -> no-cache, so
+          #      a new deploy is picked up immediately once CloudFront is
+          #      invalidated and stale browser copies are not reused.
           deploy() {
-            aws s3 sync UI/out s3://$BUCKET \
-              --delete \
-              --exclude "publicImage/*" \
-              --exclude "*.html" \
-              --exclude "_next/static/*" \
-              --cache-control "public, max-age=3600" || return 1
-
+            # Pass 1: hashed, content-addressed assets -> cache forever.
             aws s3 sync UI/out/_next/static s3://$BUCKET/_next/static \
               --delete \
               --cache-control "public, max-age=31536000, immutable" || return 1
 
+            # Pass 2: everything else except the hashed assets and the mutable
+            # HTML/RSC entrypoints -> short cache.
+            aws s3 sync UI/out s3://$BUCKET \
+              --delete \
+              --exclude "_next/static/*" \
+              --exclude "*.html" \
+              --exclude "*.txt" \
+              --cache-control "public, max-age=3600" || return 1
+
+            # Pass 3a: HTML pages -> never cache.
             aws s3 sync UI/out s3://$BUCKET \
               --exclude "*" \
               --include "*.html" \
               --cache-control "no-cache" \
               --content-type "text/html" || return 1
+
+            # Pass 3b: app-router RSC navigation payloads -> never cache, so they
+            # stay in sync with the freshly deployed HTML.
+            aws s3 sync UI/out s3://$BUCKET \
+              --exclude "*" \
+              --include "*.txt" \
+              --cache-control "no-cache" \
+              --content-type "text/plain" || return 1
           }
 
           SUCCESS=false
