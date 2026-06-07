@@ -229,6 +229,7 @@ Key commerce fields: orders/payments track `paymentIntentId`, `checkoutSessionId
 | `/profile` | auth | Own profile |
 | `/payments` | auth | Stripe config, products, checkout demo (Elements + hosted) |
 | `/orders` | auth | Order list with payment status (admins see all) |
+| `/copilot` | auth | AI chat assistant over orders, products & billing |
 | `/users` | ADMIN | Create / search / activate users |
 | `/configuration` | ADMIN | Org settings: Meta, WhatsApp, address, OpenAI, Stripe, products |
 
