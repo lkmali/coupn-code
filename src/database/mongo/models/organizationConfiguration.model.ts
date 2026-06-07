@@ -19,6 +19,7 @@ const OrganizationConfigurationSchema = new Schema<IOrganizationConfiguration>(
     stripeConfiguration: { type: Schema.Types.Mixed },
     adminUserId: { type: Schema.Types.ObjectId },
     openaiApiKey: { type: String },
+    openaiModel: { type: String },
     geminiAIConfiguration: {
       apiKey: { type: String },
       baseUrl: { type: String },

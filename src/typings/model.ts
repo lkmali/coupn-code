@@ -255,6 +255,7 @@ export interface IOrganizationConfiguration {
   whatsappTemplate?: Record<string, IWhatsAppTemplate>
   stripeConfiguration?: import('./payment').IStripeConfiguration
   openaiApiKey?: string
+  openaiModel?: string
   isDeleteAllowed: boolean
   isActive?: boolean
   isDelete?: boolean

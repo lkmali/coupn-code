@@ -55,6 +55,7 @@ interface FormState {
   whatsappToken: string;
   whatsappPhoneNumberId: string;
   openaiApiKey: string;
+  openaiModel: string;
   geminiApiKey: string;
   geminiBaseUrl: string;
   defaultLanguage: "" | Language;
@@ -88,6 +89,7 @@ const EMPTY: FormState = {
   whatsappToken: "",
   whatsappPhoneNumberId: "",
   openaiApiKey: "",
+  openaiModel: "",
   geminiApiKey: "",
   geminiBaseUrl: "",
   defaultLanguage: "",
@@ -108,6 +110,7 @@ function fromConfig(c: OrganizationConfiguration | null): FormState {
     whatsappToken: c.metaAttributes?.whatsapp?.token ?? "",
     whatsappPhoneNumberId: c.metaAttributes?.whatsapp?.phoneNumberId ?? "",
     openaiApiKey: c.openaiApiKey ?? "",
+    openaiModel: c.openaiModel ?? "",
     geminiApiKey: c.geminiAIConfiguration?.apiKey ?? "",
     geminiBaseUrl: c.geminiAIConfiguration?.baseUrl ?? "",
     defaultLanguage: c.defaultLanguage ?? "",
@@ -304,6 +307,8 @@ export default function ConfigurationPage() {
 
 
     if (secretChanged("openaiApiKey")) payload.openaiApiKey = form.openaiApiKey;
+    // Model is not a secret — send it whenever set so the per-org override sticks.
+    if (form.openaiModel.trim()) payload.openaiModel = form.openaiModel.trim();
 
     if (secretChanged("geminiApiKey") || form.geminiBaseUrl) {
       payload.geminiAIConfiguration = {};
@@ -522,7 +527,7 @@ export default function ConfigurationPage() {
     
       <Section
         title="AI Keys"
-        description="API key used for AI-powered features."
+        description="API key and model used for AI-powered features."
       >
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <TextInput
@@ -531,6 +536,12 @@ export default function ConfigurationPage() {
             value={form.openaiApiKey}
             onChange={(v) => set("openaiApiKey", v)}
             placeholder="sk-••••••••"
+          />
+          <TextInput
+            label="OpenAI Model"
+            value={form.openaiModel}
+            onChange={(v) => set("openaiModel", v)}
+            placeholder="gpt-4.1-nano"
           />
         </div>
       </Section>

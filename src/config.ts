@@ -54,12 +54,13 @@ const agentsConfig = {
 }
 
 /**
- * Dashboard copilot (OpenAI) configuration. The key/model are kept here in
- * config rather than in the env files — set `apiKey` directly below.
+ * Dashboard copilot (OpenAI) configuration. Read from the environment so the
+ * key/model are configurable per deployment; the per-org model (Configuration →
+ * AI Keys) still overrides `model` at request time when set.
  */
 const openAIConfig = {
-  apiKey: '',
-  model: 'gpt-4.1-nano',
+  apiKey: environment.OPENAI_API_KEY ?? '',
+  model: environment.OPENAI_MODEL ?? 'gpt-4.1-nano',
 }
 
 const redisConfig = {

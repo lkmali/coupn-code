@@ -62,7 +62,7 @@ export class SocialService {
     this.socialContactRepository = new MongoSocialContactRepository()
     this.socialMessageRepository = new MongoSocialMessageRepository()
     this.s3TempKeyRepository = new MongoS3TempKeyRepository()
-    this.organizationConfigurationService = new OrganizationConfigurationService()
+    this.organizationConfigurationService = OrganizationConfigurationService.Instance
     // Enable queue if Redis is configured
   }
 

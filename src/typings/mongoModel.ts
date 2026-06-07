@@ -156,6 +156,7 @@ export interface IMongoOrganizationConfiguration extends Document {
   geminiAIConfiguration?: IGeminiAIConfiguration
   stripeConfiguration?: import('./payment').IStripeConfiguration
   openaiApiKey?: string
+  openaiModel?: string
   defaultLanguage?: string // Default language for the organization (e.g. HINDI, ENGLISH, GUJARATI)
   adminUserId: mongoose.Types.ObjectId
   isDeleteAllowed: boolean

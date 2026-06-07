@@ -112,6 +112,7 @@ export interface OrganizationConfiguration {
   metaAttributes?: MetaAttributes;
   phoneNumberInformation?: PhoneNumberInfo[];
   openaiApiKey?: string;
+  openaiModel?: string;
   geminiAIConfiguration?: GeminiAIConfiguration;
   exotelConfiguration?: ExotelConfiguration;
   defaultLanguage?: Language;

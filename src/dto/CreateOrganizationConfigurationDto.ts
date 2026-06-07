@@ -428,6 +428,11 @@ export class CreateOrganizationConfigurationDto {
 
   @IsOptional()
   @CleanOptional()
+  @IsString()
+  public openaiModel?: string
+
+  @IsOptional()
+  @CleanOptional()
   @ValidateNested()
   @Type(() => GeminiAIConfigurationDto)
   public geminiAIConfiguration?: GeminiAIConfigurationDto

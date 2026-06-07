@@ -37,10 +37,19 @@ export class CopilotService {
 
   async chat(user: UserProfile, history: ChatMessageDto[]): Promise<ChatResult> {
     // Use the org-specific OpenAI key saved under Configuration → AI Keys.
-    const orgConfig = await this.organizationConfigurationService
+    let orgConfig = await this.organizationConfigurationService
       .getOrganizationConfigurationFromDb(user.orgId)
       .catch(() => null)
-    const apiKey = orgConfig?.openaiApiKey
+    let apiKey = orgConfig?.openaiApiKey
+
+    // If the in-memory cache returned a config without the key (stale/partial
+    // entry), fall back to a fresh DB read before giving up.
+    if (!apiKey) {
+      orgConfig = await this.organizationConfigurationService
+        .getOrganizationConfigurationFromDb(user.orgId, { skipCache: true })
+        .catch(() => null)
+      apiKey = orgConfig?.openaiApiKey
+    }
 
     const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
       { role: 'system', content: SYSTEM_PROMPT },
@@ -52,7 +61,10 @@ export class CopilotService {
     for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
       const completion = await this.openAIService.createChatCompletion(
         {
-          model: this.openAIService.model,
+          // Per-org model (Configuration → AI Keys) takes precedence so each
+          // org can pick a model its OpenAI project is entitled to; falls back
+          // to the global default when unset.
+          model: orgConfig?.openaiModel || this.openAIService.model,
           messages,
           tools: toolDefinitions,
           tool_choice: 'auto',

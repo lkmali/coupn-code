@@ -42,7 +42,7 @@ export class OrganizationConfigurationService {
    * internal callers (copilot, Meta/WhatsApp senders) read real secret values
    * without a DB/Redis round-trip. Client responses are masked separately.
    */
-  private readonly memoryConfigCache = new Map<string, IOrganizationConfiguration>()
+  private static readonly memoryConfigCache = new Map<string, IOrganizationConfiguration>()
 
   constructor() {
     this.organizationConfigurationRepository = new MongoOrganizationConfigurationRepository()
@@ -230,10 +230,18 @@ export class OrganizationConfigurationService {
       } catch (redisError) {
         loggerProvider.logger.warn('Redis delete error, cache not invalidated:', redisError)
       }
-      // configData may now hold preserved (still-encrypted) secrets, so decrypt
-      // before caching to honour "memory stores real data".
-      const realConfig = decryptConfigSecrets(configData as IOrganizationConfiguration)
-      if (realConfig) this.memoryConfigCache.set(String(userProfile.orgId), realConfig)
+      // Re-read the persisted document and cache that, rather than caching
+      // `configData`. `configData` only holds the fields from this request, but
+      // the DB write is a `$set` that leaves untouched fields in place — caching
+      // the partial body would drop every field the client didn't send. Reading
+      // back the merged doc (and decrypting it) keeps the L1 cache identical to
+      // what's stored, so internal callers see the real, complete config.
+      const persisted = await this.organizationConfigurationRepository.getOrganizationConfiguration({
+        orgId: toObjectId(userProfile.orgId),
+        isDelete: false,
+      })
+      const realConfig = decryptConfigSecrets(persisted as unknown as IOrganizationConfiguration)
+      if (realConfig) OrganizationConfigurationService.memoryConfigCache.set(String(userProfile.orgId), realConfig)
 
       return { message: 'Organization configuration saved successfully' }
     } catch (error: any) {
@@ -250,18 +258,25 @@ export class OrganizationConfigurationService {
    * Get organization configuration by ID
    * First checks Redis cache, if not available fetches from database and caches it
    */
-  async getOrganizationConfigurationFromDb(orgId: string | number): Promise<IOrganizationConfiguration> {
+  async getOrganizationConfigurationFromDb(
+    orgId: string | number,
+    options: { skipCache?: boolean } = {},
+  ): Promise<IOrganizationConfiguration> {
     try {
       // L1: process-local cache already holds the decrypted, real config.
-      const cached = this.memoryConfigCache.get(String(orgId))
-      if (cached) return cached
+      // Callers that need a guaranteed-fresh read (e.g. after the cache may be
+      // stale/partial) pass `skipCache` to bypass L1 and re-read from the DB.
+      if (!options.skipCache) {
+        const cached = OrganizationConfigurationService.memoryConfigCache.get(String(orgId))
+        if (cached) return cached
+      }
 
       const config = await this.organizationConfigurationRepository.getOrganizationConfiguration({
         orgId: toObjectId(orgId),
         isDelete: false,
       })
       const real = decryptConfigSecrets(config as unknown as IOrganizationConfiguration)
-      if (real) this.memoryConfigCache.set(String(orgId), real)
+      if (real) OrganizationConfigurationService.memoryConfigCache.set(String(orgId), real)
       return real as IOrganizationConfiguration
     } catch (error: any) {
       loggerProvider.logger.error('getOrganizationConfiguration_Error', {
@@ -280,7 +295,7 @@ export class OrganizationConfigurationService {
   async getOrganizationConfiguration(orgId: string): Promise<IOrganizationConfiguration> {
     try {
       // L1: process-local cache already holds the decrypted, real config.
-      const memHit = this.memoryConfigCache.get(String(orgId))
+      const memHit = OrganizationConfigurationService.memoryConfigCache.get(String(orgId))
       if (memHit) return memHit
 
       const cacheKey = this.getOrganizationCacheKey(orgId)
@@ -291,7 +306,7 @@ export class OrganizationConfigurationService {
         if (cachedData) {
           loggerProvider.logger.info(`Organization configuration found in cache for orgId: ${orgId}`)
           const real = decryptConfigSecrets(cachedData as IOrganizationConfiguration)!
-          this.memoryConfigCache.set(String(orgId), real)
+          OrganizationConfigurationService.memoryConfigCache.set(String(orgId), real)
           return real
         }
       } catch (redisError) {
@@ -318,7 +333,7 @@ export class OrganizationConfigurationService {
       }
 
       const real = decryptConfigSecrets(config as unknown as IOrganizationConfiguration)!
-      this.memoryConfigCache.set(String(orgId), real)
+      OrganizationConfigurationService.memoryConfigCache.set(String(orgId), real)
       return real as any
     } catch (error: any) {
       loggerProvider.logger.error('getOrganizationConfiguration_Error', {
@@ -370,7 +385,7 @@ export class OrganizationConfigurationService {
         loggerProvider.logger.warn('Redis delete error, cache not invalidated:', redisError)
       }
       // Drop the L1 entry so the next read repopulates with the merged config.
-      this.memoryConfigCache.delete(String(orgId))
+      OrganizationConfigurationService.memoryConfigCache.delete(String(orgId))
 
       return merged
     } catch (error: any) {
@@ -462,7 +477,7 @@ export class OrganizationConfigurationService {
         if (!orgId) continue
         const real = decryptConfigSecrets(config as unknown as IOrganizationConfiguration)
         if (real) {
-          this.memoryConfigCache.set(String(orgId), real)
+          OrganizationConfigurationService.memoryConfigCache.set(String(orgId), real)
           loaded++
         }
       }
