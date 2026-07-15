@@ -14,20 +14,12 @@ const envConfig = {
   JWT_EXPIRES_IN: Number(environment.JWT_EXPIRES_IN ?? 3600) ?? '1h',
   NETWORK_WEBHOOK_SECRET: environment.NETWORK_WEBHOOK_SECRET ?? 'intgration-demo',
   WEBSITE_URL: environment.WEBSITE_URL ?? 'http://localhost:3000',
-  APP_TESTING_OTP: environment.APP_TESTING_OTP,
-  APP_TESTING_MOBILE: environment.APP_TESTING_MOBILE,
-  TEST_MODE: String(environment.TEST_MODE) === 'true',
   BACKEND_URL: environment.BACKEND_URL ?? '',
   SERVER_UI_URL: environment.SERVER_UI_URL ?? '',
   PORT: Number(environment.PORT) || 3000,
-  redisPriFix: String(environment.REDIS_PRI_FIX) ?? 'demo-dev',
+
   environment: String(environment.NODE_ENV) ?? 'demo-dev',
-  EMAIL_TEST_MODE: String(environment.EMAIL_TEST_MODE) === 'true',
-  BOT_TOKEN_NETWORK: String(environment.BOT_TOKEN_NETWORK) ?? '',
-  BOT_EXPIRES_IN: Number(environment.BOT_EXPIRES_IN) || 31536000,
-  // Google OAuth (for Gmail integration)
-  GOOGLE_CLIENT_ID: environment.GOOGLE_CLIENT_ID ?? '',
-  GOOGLE_CLIENT_SECRET: environment.GOOGLE_CLIENT_SECRET ?? ''
+
 }
 
 const defaultOrganizationInformation = {
@@ -53,28 +45,6 @@ const agentsConfig = {
   agentUrl: environment.AGENTS_URL
 }
 
-/**
- * Dashboard copilot (OpenAI) configuration. Read from the environment so the
- * key/model are configurable per deployment; the per-org model (Configuration →
- * AI Keys) still overrides `model` at request time when set.
- */
-const openAIConfig = {
-  apiKey: environment.OPENAI_API_KEY ?? '',
-  model: environment.OPENAI_MODEL ?? 'gpt-4.1-nano',
-}
-
-const redisConfig = {
-  host: environment.REDIS_HOST || 'localhost',
-  port: Number(environment.REDIS_PORT) || 6379,
-  password: environment.REDIS_PASSWORD,
-  username: environment.REDIS_USER,
-  db: Number(environment.REDIS_DB) || 0,
-  useQueue: String(environment.USE_QUEUE) === 'true',
-  useRedis: String(environment.USE_REDIS) === 'true',
-  useCluster: String(environment.REDIS_USE_CLUSTER) === 'true',
-  clusterNodes: environment.REDIS_CLUSTER_NODES, // Comma-separated: "host1:port1,host2:port2"
-}
-
 
 const configMongoDb = {
   uri: environment.MONGO_URI || 'mongodb://localhost:27017/intgration-demo',
@@ -85,10 +55,6 @@ const configMongoDb = {
     socketTimeoutMS: 45000,
   },
 }
-
-
-
-
 const encryptionConfig = {
   algorithm: '',
   key: '',
@@ -96,49 +62,13 @@ const encryptionConfig = {
   isEnable: false,
 }
 
-// Dedicated key for encrypting third-party secrets (e.g. per-org Stripe API
-// keys) at rest in the configuration DB. Kept separate from `encryptionConfig`
-// so enabling secret encryption never alters the legacy OTP cipher behaviour.
-// When STRIPE_SECRETS_KEY is empty, secrets are stored as-is (a startup warning
-// is logged) so local development still works without extra setup.
 const secretCryptoConfig = {
   key: environment.STRIPE_SECRETS_KEY ?? '',
   isEnable: Boolean(environment.STRIPE_SECRETS_KEY),
 }
 
-const awsConfigurationKey = {
-  config: {
-    accessKeyId: environment.AWS_ACCESS_KEY_ID,
-    secretAccessKey: environment.AWS_SECRET_ACCESS_KEY,
-    region: environment.AWS_REGION,
-    signatureVersion: 'v4',
-  },
-  s3Config: {
-    bucketName: environment.AWS_S3_PRIVATE_BUCKET_NAME ?? '',
-    publicBucketName: environment.AWS_S3_PUBLIC_BUCKET_NAME || 'anantkaya-files',
-    publicBucketAccessId: environment.PUBLIC_BUCKET_AWS_ACCESS_KEY_ID,
-    publicBucketSecretAccessKey: environment.PUBLIC_BUCKET_AWS_SECRET_ACCESS_KEY,
-    expireTimeForPrivateUrl: 3600,
-    publicUrl: `https://${environment.AWS_S3_PUBLIC_BUCKET_NAME}.s3.${environment.AWS_REGION}.amazonaws.com`,
-  },
-  sesEmail: {
-    from: environment.EMAIL_SENDER_ADMIN ?? 'noreply@aiplustechnology.com',
-  },
-}
 
-// Only force HTTP -> HTTPS upgrades when the app is ACTUALLY served over TLS.
-// NODE_ENV is the wrong signal: a production build can still be served over
-// plain http:// (e.g. behind no TLS terminator, or on a raw IP:port). In that
-// case emitting `upgrade-insecure-requests` makes the browser rewrite every
-// request to https://<host>:<port> — which has no TLS — and fail with
-// "Unsafe attempt to load URL https://.../ from frame with URL http://..."
-// plus ERR_SSL_PROTOCOL_ERROR on every asset. Gate on an explicit flag that is
-// only true when there is a real HTTPS endpoint (set SERVE_OVER_HTTPS=true once
-// TLS / a reverse proxy is in front of the app).
 const servedOverHttps = String(environment.SERVE_OVER_HTTPS) === 'true'
-
-console.log("SERVE_OVER_HTTPS =", environment.SERVE_OVER_HTTPS,servedOverHttps);
-
 const helmetConfig = {
   contentSecurityPolicy: {
     directives: {
@@ -173,9 +103,6 @@ const helmetConfig = {
     policy: 'same-origin',
   },
 }
-console.log("HELMET CONFIG", JSON.stringify(helmetConfig,null,2 ));
-
-
 const contestRequireAttribute = {
   orgId: {
     type: 'number',
@@ -200,9 +127,6 @@ export {
   defaultOrganizationInformation,
   encryptionConfig,
   secretCryptoConfig,
-  awsConfigurationKey,
   contestRequireAttribute,
-  helmetConfig,
-  redisConfig,
-  openAIConfig
+  helmetConfig
 }
