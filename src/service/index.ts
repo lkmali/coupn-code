@@ -1,20 +1,3 @@
 export * from './user.service'
 export * from './jwt.service'
 export * from './encryption.service'
-export * from './aws'
-export * from './redis.service'
-export * from './seeder.service'
-export * from './organizationConfiguration.service'
-export * from './permission.service'
-export * from './whatsappBroadcast.service'
-export * from './notification.service'
-export * from './exotel.service'
-export * from './exotel.helper.service'
-// Commerce
-export * from './auditLog.service'
-export * from './product.service'
-export * from './order.service'
-// Payments — Stripe (per-org / multi-tenant). All Stripe code lives in ./stripe
-export * from './stripe'
-// Copilot — dashboard chat assistant (OpenAI tool-calling). Lives in ./copilot
-export * from './copilot'

@@ -13,26 +13,11 @@ const UserSchema = new Schema<IUser>(
     userName: { type: String },
     email: { type: String },
     isVerified: { type: Boolean, default: false },
-    orgId: { type: Schema.Types.ObjectId, ref: 'Organization', required: true },
     isMainAdmin: { type: Boolean, default: false },
     isBlocked: { type: Boolean, default: false },
     isActive: { type: Boolean, default: false, required: true },
     isDelete: { type: Boolean, default: false, required: true },
-    lastLoginAt: { type: Date },
-    createdBy: { type: Schema.Types.ObjectId, ref: 'User' },
-    updatedBy: { type: Schema.Types.ObjectId, ref: 'User' },
-    exotel: {
-      type: {
-        sipId: { type: String, required: true },
-        sipSecret: { type: String, required: true },
-        exotelUserId: { type: String },
-        registeredAt: { type: Date },
-        isAvailable: { type: Boolean },
-        availabilityUpdatedAt: { type: Date },
-      },
-      _id: false,
-      default: undefined,
-    },
+    lastLoginAt: { type: Date }
   },
   {
     timestamps: true,
@@ -40,12 +25,6 @@ const UserSchema = new Schema<IUser>(
   }
 )
 
-// Pre-save middleware to ensure userId equals _id
-UserSchema.pre('save', function () {
-  if (!this.userId) {
-    this.userId = this._id
-  }
-})
 
 // Indexes matching PostgreSQL
 UserSchema.index({ mobileNumber: 1, orgId: 1 })

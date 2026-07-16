@@ -115,7 +115,6 @@ export class AuthController {
     return {
       userId: userProfile?.userId,
       isNewUser: userProfile?.isNewUser,
-      roles: userProfile?.roles,
       token: this.jWTService.generateToken(userProfile),
     }
   }
