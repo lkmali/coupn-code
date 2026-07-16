@@ -1,20 +1,21 @@
 "use client";
 
 /**
- * Wraps the app in the Redux store and restores the session on first mount.
+ * Wraps the app in the Redux store and looks up this device's details once, on
+ * first mount, before any page decides what to render.
  */
 
 import { useEffect } from "react";
 import { Provider } from "react-redux";
 import { store } from "@/store/store";
 import { useAppDispatch } from "@/store/hooks";
-import { bootstrapAuth } from "@/features/auth/authSlice";
+import { bootstrapUser } from "@/features/user/userSlice";
 
-function AuthBootstrap({ children }: { children: React.ReactNode }) {
+function UserBootstrap({ children }: { children: React.ReactNode }) {
   const dispatch = useAppDispatch();
 
   useEffect(() => {
-    dispatch(bootstrapAuth());
+    void dispatch(bootstrapUser());
   }, [dispatch]);
 
   return <>{children}</>;
@@ -23,7 +24,7 @@ function AuthBootstrap({ children }: { children: React.ReactNode }) {
 export default function Providers({ children }: { children: React.ReactNode }) {
   return (
     <Provider store={store}>
-      <AuthBootstrap>{children}</AuthBootstrap>
+      <UserBootstrap>{children}</UserBootstrap>
     </Provider>
   );
 }

@@ -1,17 +1,13 @@
 /**
- * Redux store configuration (combines all feature reducers).
+ * Redux store configuration.
  */
 
 import { configureStore } from "@reduxjs/toolkit";
-import authReducer from "@/features/auth/authSlice";
-import usersReducer from "@/features/users/usersSlice";
-import configReducer from "@/features/config/configSlice";
+import userReducer from "@/features/user/userSlice";
 
 export const store = configureStore({
   reducer: {
-    auth: authReducer,
-    users: usersReducer,
-    config: configReducer,
+    user: userReducer,
   },
 });
 

@@ -15,8 +15,8 @@ const geistMono = Geist_Mono({
 
 const siteUrl =
   process.env.NEXT_PUBLIC_SITE_URL ?? "http://140.245.233.90:3000";
-const title = "Admin Console";
-const description = "Organization & user management console";
+const title = "Integration";
+const description = "Your name, phone number and UPI ID, saved to this device";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
