@@ -39,5 +39,5 @@
     "lib": ["ESNext"]
   },
   "exclude": ["node_modules", "dist", "coverage", "logs", ".vscode"],
-  "include": ["src/**/*", "types.d.ts", "src/mcp/agents/*.json"]
+  "include": ["src/**/*", "types.d.ts"]
 }
