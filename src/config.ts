@@ -1,9 +1,24 @@
 import { load } from 'dotenv-extended'
-const environment = load({
-  errorOnExtra: true,
-  errorOnRegex: true,
-  includeProcessEnv: true,
-})
+
+// A serverless deploy has no .env file — configuration arrives as platform
+// environment variables — and the .env.defaults/.env.schema files it validates
+// against are data, so a bundler that traces static imports never packages them.
+// Falling back to process.env keeps a missing or unvalidatable file from
+// throwing at import time, which would take down the whole function.
+function loadEnvironment(): NodeJS.ProcessEnv {
+  try {
+    return load({
+      errorOnExtra: true,
+      errorOnRegex: true,
+      includeProcessEnv: true,
+    }) as NodeJS.ProcessEnv
+  } catch (error) {
+    console.warn('[WARN] .env validation skipped, falling back to process.env:', error)
+    return process.env
+  }
+}
+
+const environment = loadEnvironment()
 
 const envConfig = {
   ALLOWED_ORIGINS: environment.ALLOWED_ORIGINS ? environment.ALLOWED_ORIGINS.split(',') : ['*'],

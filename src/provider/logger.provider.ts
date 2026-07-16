@@ -34,9 +34,6 @@ export class LoggerProvider {
   }
 
   private constructor() {
-    const logDir = path.join(__dirname, '../../../logs')
-    if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true })
-
     const fileFormat = format.printf((info: any) => this.jsonStringify(this.toLogObject(info)))
 
     const skipQuiet = format((info: any) => (info._quiet ? false : info))
@@ -59,31 +56,56 @@ export class LoggerProvider {
           handleExceptions: true,
           format: consoleFormat,
         }),
-        new DailyRotateFile({
-          filename: 'debug-%DATE%.log',
-          dirname: logDir,
-          level: 'debug',
-          datePattern: constantConfig.logOption.datePattern,
-          maxFiles: '200d',
-          maxSize: '10m',
-          options: { flags: 'a', mode: 0o777 },
-          format: fileFormat,
-        }),
-        new DailyRotateFile({
-          filename: 'errors-%DATE%.log',
-          dirname: logDir,
-          level: 'error',
-          datePattern: constantConfig.logOption.datePattern,
-          maxFiles: '200d',
-          maxSize: '10m',
-          options: { flags: 'a', mode: 0o755 },
-          format: fileFormat,
-        }),
+        ...this.buildFileTransports(fileFormat),
       ],
       exitOnError: false,
     })
 
     this.setLoggerMethods()
+  }
+
+  /**
+   * Rotating-file transports, for hosts with a writable disk that outlives the
+   * process. Serverless platforms have neither: the filesystem is read-only
+   * apart from /tmp, so creating the log directory throws EROFS at import time —
+   * before any request — and /tmp itself is discarded when the instance is
+   * recycled, making the files unreadable anyway. There, console output is the
+   * transport: the platform captures stdout/stderr into its own log drain.
+   */
+  private buildFileTransports(fileFormat: winston.Logform.Format): winston.transport[] {
+    const isServerless = Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME)
+    if (isServerless) return []
+
+    const logDir = path.join(__dirname, '../../../logs')
+    try {
+      if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true })
+    } catch (error) {
+      console.warn(`[WARN] File logging disabled — cannot write to ${logDir}:`, error)
+      return []
+    }
+
+    return [
+      new DailyRotateFile({
+        filename: 'debug-%DATE%.log',
+        dirname: logDir,
+        level: 'debug',
+        datePattern: constantConfig.logOption.datePattern,
+        maxFiles: '200d',
+        maxSize: '10m',
+        options: { flags: 'a', mode: 0o777 },
+        format: fileFormat,
+      }),
+      new DailyRotateFile({
+        filename: 'errors-%DATE%.log',
+        dirname: logDir,
+        level: 'error',
+        datePattern: constantConfig.logOption.datePattern,
+        maxFiles: '200d',
+        maxSize: '10m',
+        options: { flags: 'a', mode: 0o755 },
+        format: fileFormat,
+      }),
+    ]
   }
 
   private jsonStringify(object: any, pretty = false): string {
