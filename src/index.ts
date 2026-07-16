@@ -77,7 +77,7 @@ async function loadServer() {
 
   // Serve the Next.js UI (static export) from the SAME origin as the API, so the
   // UI's "/api/*" calls hit this server directly — no CORS, no cross-port routing.
-  const uiDir = path.join(__dirname, '../../new-ui/out')
+  const uiDir = path.join(__dirname, '../../UI/out')
   if (fs.existsSync(uiDir)) {
     app.post('/report-violation', (_req, res) => res.sendStatus(204))
 

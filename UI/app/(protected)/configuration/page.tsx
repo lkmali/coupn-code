@@ -236,7 +236,7 @@ export default function ConfigurationPage() {
   );
 
   useEffect(() => {
-    if (isAdmin === false) router.replace("/");
+    if (isAdmin === false) router.replace("/dashboard");
   }, [isAdmin, router]);
 
   useEffect(() => {

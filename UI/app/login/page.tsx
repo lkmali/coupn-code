@@ -28,7 +28,7 @@ export default function LoginPage() {
 
   // Already logged in? Skip the login screen.
   useEffect(() => {
-    if (isAuthenticated) router.replace("/");
+    if (isAuthenticated) router.replace("/dashboard");
   }, [isAuthenticated, router]);
 
   useEffect(() => {
@@ -41,7 +41,7 @@ export default function LoginPage() {
     e.preventDefault();
     const result = await dispatch(login({ email: email.trim(), password }));
     if (login.fulfilled.match(result)) {
-      router.replace("/");
+      router.replace("/dashboard");
     }
   }
 

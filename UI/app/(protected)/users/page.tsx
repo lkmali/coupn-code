@@ -42,7 +42,7 @@ export default function UsersPage() {
   const [busyId, setBusyId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (isAdmin === false) router.replace("/");
+    if (isAdmin === false) router.replace("/dashboard");
   }, [isAdmin, router]);
 
   const query = useMemo(

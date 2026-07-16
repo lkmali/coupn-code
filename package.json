@@ -8,7 +8,7 @@
         "killPod": "lsof -ti :3000 | xargs kill -9",
         "docker-compose:run": "docker compose up -d --build",
         "build:server": "rimraf dist .tsbuildinfo && tsc --skipLibCheck",
-        "build:ui": "rimraf new-ui/out && npm --prefix new-ui install && npm --prefix new-ui run build",
+        "build:ui": "rimraf UI/out && npm --prefix UI install && npm --prefix UI run build",
         "build:all": "npm run build:ui && npm run build:server",
         "build": "npm run build:all",
         "start": "node dist/src/index.js",

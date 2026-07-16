@@ -20,7 +20,7 @@ interface NavItem {
 
 const NAV: NavItem[] = [
   {
-    href: "/",
+    href: "/dashboard",
     label: "Home",
     icon: (
       <path d="M10 2.5 2.5 8.5v8a1 1 0 0 0 1 1H8v-4.5a2 2 0 1 1 4 0V17.5h4.5a1 1 0 0 0 1-1v-8L10 2.5Z" />
@@ -101,10 +101,7 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
 
       <nav className="flex-1 space-y-1 px-3 py-4">
         {items.map((item) => {
-          const active =
-            item.href === "/"
-              ? pathname === "/"
-              : pathname.startsWith(item.href);
+          const active = pathname.startsWith(item.href);
           return (
             <Link
               key={item.href}
